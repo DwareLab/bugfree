@@ -57,6 +57,19 @@
   },
   "homepage": "https://github.com/DwareLab/bugfree#readme",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "provenance": true
+  },
+  "keywords": [
+    "error-tracking",
+    "sentry-alternative",
+    "self-hosted",
+    "bugfree",
+    "nextjs",
+    "react"
+  ],
+  "author": "DwareLab",
+  "bugs": {
+    "url": "https://github.com/DwareLab/bugfree/issues"
   }
 }

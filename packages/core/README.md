@@ -2,13 +2,6 @@
 
 Platform-agnostic core of the bugfree SDKs (event model, stack parsing, scope, client). You normally install a platform SDK instead.
 
-Published to GitHub Packages. Add this to your project's `.npmrc` (GitHub requires a token to install, even for public packages: a classic personal access token with `read:packages`):
-
-```
-@dwarelab:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
 ```bash
 npm install @dwarelab/bugfree-core
 ```

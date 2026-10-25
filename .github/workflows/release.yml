@@ -1,7 +1,7 @@
 name: Release
 
-# Push a tag like v0.2.0 (after `node scripts/set-version.mjs 0.2.0`) to publish the SDKs to
-# GitHub Packages and the API / dashboard images to GHCR.
+# Push a tag like v0.2.0 (after `node scripts/set-version.mjs 0.2.0`) to publish the SDKs to npm
+# and the API image to GHCR. Requires the NPM_TOKEN repository secret.
 on:
   push:
     tags: ["v*"]
@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      # npm provenance: signs each package with this workflow's identity
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-          registry-url: https://npm.pkg.github.com
-          scope: "@dwarelab"
+          registry-url: https://registry.npmjs.org
       - name: Check the tag matches the package versions
         run: |
           TAG="${GITHUB_REF_NAME#v}"
@@ -30,12 +30,15 @@ jobs:
       - run: npm ci
       - run: npm run build:sdk
       - run: npm test
-      - name: Publish (dependencies first)
+      - name: Publish to npm (dependencies first; skips versions already published)
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           for p in core browser node express nextjs cli; do
-            npm publish -w "@dwarelab/bugfree-$p"
+            name="@dwarelab/bugfree-$p"
+            version=$(node -p "require('./packages/$p/package.json').version")
+            if npm view "$name@$version" version >/dev/null 2>&1; then echo "$name@$version already published"; continue; fi
+            npm publish -w "$name"
           done
 
   images:
@@ -45,7 +48,8 @@ jobs:
       packages: write
     strategy:
       matrix:
-        app: [api, web]
+        # The dashboard image joins once it reads its API URL at runtime (today it's baked in at build).
+        app: [api]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3

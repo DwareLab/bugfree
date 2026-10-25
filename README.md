@@ -64,16 +64,9 @@ Tests: `npm test` (stack parsing, grouping, source-map symbolication).
 
 Create a project in the dashboard. Its **Settings & setup** page shows these snippets with your DSN filled in.
 
-### Install from GitHub Packages
+### Install
 
-The SDKs are published to GitHub Packages under `@dwarelab`. GitHub requires a token to install from its
-npm registry, even for public packages: create a classic personal access token with the `read:packages`
-scope, then add this `.npmrc` to your app (and set `GITHUB_TOKEN` locally and in CI):
-
-```
-@dwarelab:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
+The SDKs are on npm under `@dwarelab`:
 
 | Package | For |
 |---|---|
@@ -219,8 +212,9 @@ npm install                          # refresh the lockfile
 git commit -am "Release 0.2.0" && git tag v0.2.0 && git push --follow-tags
 ```
 
-The tag triggers `.github/workflows/release.yml`, which publishes the SDKs to GitHub Packages and pushes
-`ghcr.io/dwarelab/bugfree-api` and `ghcr.io/dwarelab/bugfree-web` images.
+The tag triggers `.github/workflows/release.yml`, which publishes the SDKs to npm (with provenance) and
+pushes the `ghcr.io/dwarelab/bugfree-api` image. It needs an `NPM_TOKEN` repository secret: an npm
+granular access token with read and write access to the `@dwarelab` packages.
 
 ## Not built yet
 
