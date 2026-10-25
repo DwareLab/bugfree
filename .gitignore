@@ -8,3 +8,4 @@ coverage
 next-env.d.ts
 *.tsbuildinfo
 .claude
+backups
