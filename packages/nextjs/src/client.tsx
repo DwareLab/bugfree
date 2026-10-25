@@ -1,7 +1,7 @@
-import { type BrowserClient, type BrowserOptions, captureException, init as browserInit } from "@bugfree/browser";
+import { type BrowserClient, type BrowserOptions, captureException, init as browserInit } from "@dwarelab/bugfree-browser";
 import { Component, type ErrorInfo, type ReactNode, useEffect } from "react";
 
-export * from "@bugfree/browser";
+export * from "@dwarelab/bugfree-browser";
 
 // Each `process.env.NEXT_PUBLIC_*` must be written out literally so Next.js can inline it at build time.
 function env(): { dsn?: string; release?: string; environment?: string } {

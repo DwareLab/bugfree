@@ -1,8 +1,10 @@
-import { getClient, setCurrentClient } from "@bugfree/core";
+import { getClient, setCurrentClient } from "@dwarelab/bugfree-core";
 import { NodeClient, type NodeOptions } from "./client";
 import {
   installConsoleBreadcrumbs,
   installFetchBreadcrumbs,
+  installHttpBreadcrumbs,
+  installShutdownFlush,
   installUncaughtExceptionHandler,
   installUnhandledRejectionHandler,
 } from "./integrations";
@@ -26,8 +28,9 @@ export {
   type CaptureContext,
   type Level,
   type User,
-} from "@bugfree/core";
+} from "@dwarelab/bugfree-core";
 export { NodeClient, runWithRequestScope, type NodeOptions } from "./client";
+export { detectRelease } from "./release";
 
 const INSTALLED = Symbol.for("bugfree.node.installed");
 
@@ -46,6 +49,8 @@ export function init(options: NodeOptions = {}): NodeClient {
     if (rejections !== "none") installUnhandledRejectionHandler(current, rejections);
     if (options.consoleBreadcrumbs !== false) installConsoleBreadcrumbs(current);
     if (options.fetchBreadcrumbs !== false) installFetchBreadcrumbs(current);
+    if (options.httpBreadcrumbs !== false) installHttpBreadcrumbs(current);
+    if (options.flushOnShutdown !== false) installShutdownFlush(current);
   }
   return client;
 }

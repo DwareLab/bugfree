@@ -1,14 +1,23 @@
-import { type Level, scrubUrl, truncate } from "@bugfree/core";
+import { type Level, scrubUrl, truncate } from "@dwarelab/bugfree-core";
 import type { BrowserClient } from "./client";
 
 type Get = () => BrowserClient;
 const PATCHED = Symbol.for("bugfree.patched");
 
+// React reports hydration mismatches as recoverable errors through window.reportError.
+const HYDRATION = /hydrat|did not match|Minified React error #(418|419|421|422|423|425)\b/i;
+
 export function installGlobalHandlers(get: Get): void {
   window.addEventListener("error", (event: ErrorEvent) => {
     const client = get();
     if (event.error) {
-      client.captureException(event.error, { level: "error", mechanism: { type: "onerror", handled: false } });
+      const message = String((event.error as Error)?.message ?? "");
+      const hydration = HYDRATION.test(message);
+      client.captureException(event.error, {
+        level: "error",
+        mechanism: { type: hydration ? "react.hydration" : "onerror", handled: false },
+        tags: hydration ? { "react.hydration": "yes" } : undefined,
+      });
       return;
     }
     // Errors without an Error object, e.g. cross-origin scripts ("Script error.") or resource failures.

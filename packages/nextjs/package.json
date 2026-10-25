@@ -1,5 +1,5 @@
 {
-  "name": "@bugfree/nextjs",
+  "name": "@dwarelab/bugfree-nextjs",
   "version": "0.1.0",
   "description": "bugfree SDK for Next.js (App Router)",
   "type": "module",
@@ -21,19 +21,25 @@
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js",
       "require": "./dist/server.cjs"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js",
+      "require": "./dist/config.cjs"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bugfree/browser": "0.1.0",
-    "@bugfree/core": "0.1.0",
-    "@bugfree/node": "0.1.0"
+    "@dwarelab/bugfree-browser": "0.1.0",
+    "@dwarelab/bugfree-core": "0.1.0",
+    "@dwarelab/bugfree-node": "0.1.0"
   },
   "peerDependencies": {
     "next": ">=15.0.0",
@@ -49,5 +55,8 @@
     "url": "git+https://github.com/DwareLab/bugfree.git",
     "directory": "packages/nextjs"
   },
-  "homepage": "https://github.com/DwareLab/bugfree#readme"
+  "homepage": "https://github.com/DwareLab/bugfree#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
 }

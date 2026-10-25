@@ -5,17 +5,17 @@
   "scripts": {
     "dev": "next dev -p 3200",
     "build": "next build",
-    "upload-sourcemaps": "bugfree sourcemaps upload --nextjs --release $BUGFREE_RELEASE --delete-after",
+    "upload-sourcemaps": "bugfree sourcemaps upload --nextjs --delete-after",
     "start": "next start -p 3200"
   },
   "dependencies": {
-    "@bugfree/nextjs": "0.1.0",
+    "@dwarelab/bugfree-nextjs": "0.1.0",
     "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "@bugfree/cli": "0.1.0",
+    "@dwarelab/bugfree-cli": "0.1.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0"
   }

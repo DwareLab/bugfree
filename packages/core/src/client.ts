@@ -2,7 +2,7 @@ import { ingestUrl, parseDsn } from "./dsn";
 import { exceptionFromThrown } from "./exception";
 import { Scope } from "./scope";
 import type { Breadcrumb, BugfreeEvent, CaptureContext, ClientOptions, EventHint, Level, Transport } from "./types";
-import { nowIso, uuid4 } from "./utils";
+import { getWaitUntil, nowIso, uuid4 } from "./utils";
 
 export const SDK_VERSION = "0.1.0";
 const CAPTURED = Symbol.for("bugfree.captured");
@@ -178,6 +178,16 @@ export abstract class BaseClient<O extends ClientOptions = ClientOptions> {
   private track(promise: Promise<unknown>): void {
     this.pending.add(promise);
     promise.finally(() => this.pending.delete(promise)).catch(() => {});
+    // Serverless runtimes (Vercel, Next.js on Node/edge) may freeze right after the response;
+    // registering the send keeps the function alive until it completes.
+    const waitUntil = getWaitUntil();
+    if (waitUntil) {
+      try {
+        waitUntil(promise.catch(() => {}));
+      } catch {
+        // outside a request scope
+      }
+    }
   }
 
   private async process(event: BugfreeEvent, hint: EventHint): Promise<void> {

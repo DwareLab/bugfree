@@ -1,5 +1,5 @@
 {
-  "name": "@bugfree/browser",
+  "name": "@dwarelab/bugfree-browser",
   "version": "0.1.0",
   "description": "bugfree SDK for browsers",
   "type": "module",
@@ -14,7 +14,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "sideEffects": false,
   "scripts": {
@@ -22,7 +23,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bugfree/core": "0.1.0"
+    "@dwarelab/bugfree-core": "0.1.0"
   },
   "license": "MIT",
   "repository": {
@@ -30,5 +31,8 @@
     "url": "git+https://github.com/DwareLab/bugfree.git",
     "directory": "packages/browser"
   },
-  "homepage": "https://github.com/DwareLab/bugfree#readme"
+  "homepage": "https://github.com/DwareLab/bugfree#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
 }

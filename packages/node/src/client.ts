@@ -11,8 +11,9 @@ import {
   Scope,
   type StackFrame,
   type TransportResult,
-} from "@bugfree/core";
+} from "@dwarelab/bugfree-core";
 import { addContextLines } from "./context-lines";
+import { detectRelease } from "./release";
 
 export interface NodeOptions extends ClientOptions {
   /** Server name sent with every event. Defaults to the hostname. */
@@ -28,6 +29,10 @@ export interface NodeOptions extends ClientOptions {
   consoleBreadcrumbs?: boolean;
   /** Record outgoing fetch() calls as breadcrumbs. Default true. */
   fetchBreadcrumbs?: boolean;
+  /** Record outgoing http/https requests (axios, got, node-fetch …) as breadcrumbs. Default true. */
+  httpBreadcrumbs?: boolean;
+  /** Deliver queued events before the process exits on SIGTERM / SIGINT. Default true. */
+  flushOnShutdown?: boolean;
   /** Read source files to show code around in-app frames. Default true. */
   includeSourceContext?: boolean;
 }
@@ -58,8 +63,8 @@ export class NodeClient extends BaseClient<NodeOptions> {
   constructor(options: NodeOptions) {
     super({
       environment: process.env.BUGFREE_ENVIRONMENT ?? process.env.NODE_ENV ?? "production",
-      release: process.env.BUGFREE_RELEASE,
       ...options,
+      release: options.release ?? detectRelease(),
     });
     this.ingestUrl = (this.transport as NodeTransport | undefined)?.url;
     this.setScopeProvider(() => requestScope.getStore());

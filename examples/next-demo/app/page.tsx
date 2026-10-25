@@ -1,6 +1,6 @@
 "use client";
 
-import { addBreadcrumb, captureMessage, setUser } from "@bugfree/nextjs/client";
+import { addBreadcrumb, captureMessage, setUser } from "@dwarelab/bugfree-nextjs/client";
 import Link from "next/link";
 import { useState } from "react";
 import { cartTotal } from "@/lib/cart";
@@ -72,6 +72,20 @@ export default function Home() {
         </li>
         <li>
           <Link href="/render-error">Client render error (error boundary)</Link>
+        </li>
+        <li>
+          <a href="/hydration">Hydration mismatch</a>
+        </li>
+        <li>
+          <button
+            id="btn-edge"
+            onClick={async () => {
+              const res = await fetch("/api/edge-boom");
+              setResult(`/api/edge-boom responded ${res.status}`);
+            }}
+          >
+            Edge route handler error
+          </button>
         </li>
         <li>
           <button id="btn-message" onClick={() => captureMessage("User opened the legacy checkout", "warning")}>

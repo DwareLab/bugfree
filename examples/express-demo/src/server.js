@@ -1,5 +1,5 @@
 // Initialize bugfree before anything else so process-level handlers are in place.
-import * as Bugfree from "@bugfree/express";
+import * as Bugfree from "@dwarelab/bugfree-express";
 
 Bugfree.init({
   dsn: process.env.BUGFREE_DSN,

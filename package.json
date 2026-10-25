@@ -15,7 +15,7 @@
     "examples/*"
   ],
   "scripts": {
-    "build:sdk": "npm run build -w @bugfree/core && npm run build -w @bugfree/browser -w @bugfree/node && npm run build -w @bugfree/express -w @bugfree/nextjs -w @bugfree/cli",
+    "build:sdk": "npm run build -w @dwarelab/bugfree-core && npm run build -w @dwarelab/bugfree-browser -w @dwarelab/bugfree-node && npm run build -w @dwarelab/bugfree-express -w @dwarelab/bugfree-nextjs -w @dwarelab/bugfree-cli",
     "build": "npm run build:sdk && npm run build -w @bugfree/api -w @bugfree/web",
     "db:up": "docker compose up -d db",
     "dev:api": "npm run dev -w @bugfree/api",

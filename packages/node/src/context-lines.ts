@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import type { StackFrame } from "@bugfree/core";
+import type { StackFrame } from "@dwarelab/bugfree-core";
 
 const CONTEXT_LINES = 5;
 const MAX_FILE_BYTES = 2 * 1024 * 1024;

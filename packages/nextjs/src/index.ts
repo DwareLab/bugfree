@@ -1,4 +1,14 @@
-import { getClient, scrubHeaders, scrubUrl } from "@bugfree/core";
+import {
+  BaseClient,
+  type BaseTransport,
+  type BugfreeEvent,
+  type ClientOptions,
+  type TransportResult,
+  getClient,
+  scrubHeaders,
+  scrubUrl,
+  setCurrentClient,
+} from "@dwarelab/bugfree-core";
 
 export interface RequestErrorContext {
   routerKind: "Pages Router" | "App Router";
@@ -17,7 +27,7 @@ export interface ErrorRequest {
 /**
  * Next.js `onRequestError` hook. In `instrumentation.ts`:
  *
- *   export { captureRequestError as onRequestError } from "@bugfree/nextjs";
+ *   export { captureRequestError as onRequestError } from "@dwarelab/bugfree-nextjs";
  */
 export async function captureRequestError(error: unknown, request: Readonly<ErrorRequest>, context: Readonly<RequestErrorContext>): Promise<void> {
   const client = getClient();
@@ -26,6 +36,8 @@ export async function captureRequestError(error: unknown, request: Readonly<Erro
   const host = headers["x-forwarded-host"] ?? headers.host;
   const proto = headers["x-forwarded-proto"]?.split(",")[0] ?? "http";
   const [pathname, query] = request.path.split("?");
+  // Server render errors carry the digest that error.tsx shows users, so reports can be looked up by it.
+  const digest = typeof (error as { digest?: unknown })?.digest === "string" ? (error as { digest: string }).digest : undefined;
   client.captureException(error, {
     level: "error",
     mechanism: { type: "nextjs.onRequestError", handled: false },
@@ -40,6 +52,7 @@ export async function captureRequestError(error: unknown, request: Readonly<Erro
       "nextjs.router": context.routerKind,
       "nextjs.route_type": context.routeType,
       ...(context.renderSource ? { "nextjs.render_source": context.renderSource } : {}),
+      ...(digest ? { digest } : {}),
     },
     contexts: { nextjs: { ...context } },
   });
@@ -47,30 +60,38 @@ export async function captureRequestError(error: unknown, request: Readonly<Erro
   await client.flush(2000);
 }
 
-export interface WithBugfreeOptions {
-  /** Release name baked into the build (exposed as NEXT_PUBLIC_BUGFREE_RELEASE). */
-  release?: string;
-  /** Generate browser and server source maps so stack traces can be un-minified. Default true. */
-  sourceMaps?: boolean;
+class EdgeTransport implements BaseTransport {
+  constructor(readonly url: string) {}
+
+  async send(event: BugfreeEvent): Promise<TransportResult> {
+    const res = await fetch(this.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(event) });
+    return { status: res.status, retryAfter: Number(res.headers.get("retry-after")) || undefined };
+  }
 }
 
-type NextConfigObject = Record<string, any>;
-type NextConfigInput = NextConfigObject | ((...args: any[]) => NextConfigObject | Promise<NextConfigObject>);
+/** Minimal client for the edge runtime (no Node APIs): edge route handlers and middleware/proxy. */
+export class EdgeClient extends BaseClient {
+  protected readonly sdkName = "bugfree.nextjs.edge";
+  protected readonly platform = "javascript" as const;
 
-/** Wraps next.config to enable production source maps and pass the release to client and server code. */
-export function withBugfree<T extends NextConfigInput>(nextConfig: T, options: WithBugfreeOptions = {}): T {
-  const apply = (config: NextConfigObject): NextConfigObject => {
-    const release = options.release ?? process.env.BUGFREE_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA;
-    const sourceMaps = options.sourceMaps !== false;
-    return {
-      ...config,
-      ...(sourceMaps ? { productionBrowserSourceMaps: true } : {}),
-      experimental: { ...config.experimental, ...(sourceMaps ? { serverSourceMaps: true } : {}) },
-      env: { ...config.env, ...(release ? { NEXT_PUBLIC_BUGFREE_RELEASE: release } : {}) },
-    };
-  };
-  if (typeof nextConfig === "function") {
-    return (async (...args: unknown[]) => apply(await nextConfig(...args))) as T;
+  protected createTransport(url: string): BaseTransport {
+    return new EdgeTransport(url);
   }
-  return apply(nextConfig) as T;
+}
+
+/**
+ * Edge-runtime init. In `instrumentation.ts`:
+ *
+ *   if (process.env.NEXT_RUNTIME === "edge") (await import("@dwarelab/bugfree-nextjs")).initEdge();
+ */
+export function initEdge(options: ClientOptions = {}): EdgeClient {
+  const client = new EdgeClient({
+    dsn: process.env.BUGFREE_DSN ?? process.env.NEXT_PUBLIC_BUGFREE_DSN,
+    release: process.env.BUGFREE_RELEASE ?? process.env.NEXT_PUBLIC_BUGFREE_RELEASE,
+    environment: process.env.BUGFREE_ENVIRONMENT ?? process.env.NODE_ENV,
+    ...options,
+    initialTags: { runtime: "nextjs-edge", ...options.initialTags },
+  });
+  setCurrentClient(client);
+  return client;
 }

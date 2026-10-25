@@ -1,0 +1,73 @@
+name: Release
+
+# Push a tag like v0.2.0 (after `node scripts/set-version.mjs 0.2.0`) to publish the SDKs to
+# GitHub Packages and the API / dashboard images to GHCR.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+          scope: "@dwarelab"
+      - name: Check the tag matches the package versions
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          for p in core browser node express nextjs cli; do
+            V=$(node -p "require('./packages/$p/package.json').version")
+            if [ "$V" != "$TAG" ]; then echo "packages/$p is $V, tag is $TAG. Run: node scripts/set-version.mjs $TAG"; exit 1; fi
+          done
+      - run: npm ci
+      - run: npm run build:sdk
+      - run: npm test
+      - name: Publish (dependencies first)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for p in core browser node express nextjs cli; do
+            npm publish -w "@dwarelab/bugfree-$p"
+          done
+
+  images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/dwarelab/bugfree-${{ matrix.app }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}

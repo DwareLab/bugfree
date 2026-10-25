@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -9,7 +10,9 @@ Usage:
   bugfree releases new <version>
 
 Source map options:
-  --release <version>   Release the maps belong to (must match the SDK's "release")
+  --release <version>   Release the maps belong to (must match the SDK's "release").
+                        Default: BUGFREE_RELEASE, a CI commit SHA, or the current git commit
+                        (the same order the SDKs use)
   --nextjs              Next.js preset: uploads .next/static and .next/server maps
   --url-prefix <prefix> Prefix for artifact names (default "~/"); e.g. "~/dist" when
                         your files are served or run from /…/dist
@@ -21,7 +24,7 @@ Connection (or use the environment variables):
   --token <token>       Project secret key            BUGFREE_AUTH_TOKEN
 
 Examples:
-  bugfree sourcemaps upload --nextjs --release $GIT_SHA --delete-after
+  bugfree sourcemaps upload --nextjs --delete-after
   bugfree sourcemaps upload dist --url-prefix ~/dist --release 1.4.0
 `;
 
@@ -57,8 +60,8 @@ async function main(): Promise<void> {
   }
 
   if (group === "sourcemaps" && command === "upload") {
-    const release = values.release ?? process.env.BUGFREE_RELEASE;
-    if (!release) fail("--release is required");
+    const release = values.release || detectRelease();
+    if (!release) fail("Could not detect the release: pass --release or set BUGFREE_RELEASE");
     const files = values.nextjs ? await nextjsMaps(arg ?? ".next") : await genericMaps(arg ?? fail("Pass the directory to upload, or --nextjs"), values["url-prefix"] ?? "~/");
     if (!files.length) fail("No source maps found. Is source map generation enabled for your build?");
     console.log(`Uploading ${files.length} source map(s) for release ${release}…`);
@@ -82,6 +85,35 @@ async function main(): Promise<void> {
   }
 
   fail(`Unknown command: ${positionals.join(" ")}\n\n${HELP}`);
+}
+
+// Keep in sync with packages/node/src/release.ts.
+const RELEASE_ENV_VARS = [
+  "BUGFREE_RELEASE",
+  "NEXT_PUBLIC_BUGFREE_RELEASE",
+  "VERCEL_GIT_COMMIT_SHA",
+  "GITHUB_SHA",
+  "CI_COMMIT_SHA",
+  "RENDER_GIT_COMMIT",
+  "RAILWAY_GIT_COMMIT_SHA",
+  "HEROKU_SLUG_COMMIT",
+  "SOURCE_VERSION",
+  "CF_PAGES_COMMIT_SHA",
+  "COMMIT_REF",
+  "GIT_COMMIT",
+];
+
+function detectRelease(): string | undefined {
+  for (const name of RELEASE_ENV_VARS) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  try {
+    const sha = execFileSync("git", ["rev-parse", "HEAD"], { stdio: ["ignore", "pipe", "ignore"], timeout: 1000 }).toString().trim();
+    return /^[0-9a-f]{40}$/.test(sha) ? sha : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 interface MapFile {

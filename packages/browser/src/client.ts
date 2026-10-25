@@ -7,7 +7,7 @@ import {
   type StackFrame,
   type TransportResult,
   scrubUrl,
-} from "@bugfree/core";
+} from "@dwarelab/bugfree-core";
 
 export interface BrowserOptions extends ClientOptions {
   /** Report errors from window "error" and "unhandledrejection" events. Default true. */

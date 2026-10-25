@@ -1,5 +1,5 @@
 {
-  "name": "@bugfree/core",
+  "name": "@dwarelab/bugfree-core",
   "version": "0.1.0",
   "description": "Platform-agnostic core of the bugfree SDKs",
   "type": "module",
@@ -14,7 +14,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "sideEffects": false,
   "scripts": {
@@ -27,5 +28,8 @@
     "url": "git+https://github.com/DwareLab/bugfree.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/DwareLab/bugfree#readme"
+  "homepage": "https://github.com/DwareLab/bugfree#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
 }

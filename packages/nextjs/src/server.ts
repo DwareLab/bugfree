@@ -1,12 +1,12 @@
-import { type NodeClient, type NodeOptions, init as nodeInit } from "@bugfree/node";
+import { type NodeClient, type NodeOptions, init as nodeInit } from "@dwarelab/bugfree-node";
 
-export * from "@bugfree/node";
+export * from "@dwarelab/bugfree-node";
 export { captureRequestError } from "./index";
 
 /**
  * Server-side init for the Node.js runtime. Call it from `register()` in `instrumentation.ts`:
  *
- *   if (process.env.NEXT_RUNTIME === "nodejs") (await import("@bugfree/nextjs/server")).init({ dsn: ... });
+ *   if (process.env.NEXT_RUNTIME === "nodejs") (await import("@dwarelab/bugfree-nextjs/server")).init({ dsn: ... });
  */
 export function init(options: NodeOptions = {}): NodeClient {
   return nodeInit({

@@ -1,5 +1,5 @@
 {
-  "name": "@bugfree/express",
+  "name": "@dwarelab/bugfree-express",
   "version": "0.1.0",
   "description": "bugfree SDK for Express",
   "type": "module",
@@ -14,15 +14,16 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bugfree/core": "0.1.0",
-    "@bugfree/node": "0.1.0"
+    "@dwarelab/bugfree-core": "0.1.0",
+    "@dwarelab/bugfree-node": "0.1.0"
   },
   "peerDependencies": {
     "express": "^4.17.0 || ^5.0.0"
@@ -37,5 +38,8 @@
     "url": "git+https://github.com/DwareLab/bugfree.git",
     "directory": "packages/express"
   },
-  "homepage": "https://github.com/DwareLab/bugfree#readme"
+  "homepage": "https://github.com/DwareLab/bugfree#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
 }

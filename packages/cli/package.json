@@ -1,5 +1,5 @@
 {
-  "name": "@bugfree/cli",
+  "name": "@dwarelab/bugfree-cli",
   "version": "0.1.0",
   "description": "bugfree CLI: upload source maps and create releases",
   "type": "module",
@@ -7,7 +7,8 @@
     "bugfree": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -19,5 +20,8 @@
     "url": "git+https://github.com/DwareLab/bugfree.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/DwareLab/bugfree#readme"
+  "homepage": "https://github.com/DwareLab/bugfree#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
 }

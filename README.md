@@ -16,7 +16,7 @@ Self-hosted error tracking for **Next.js** and **Express**, a small Sentry you r
 
 ```
 your apps ──POST /api/ingest/:project?key=…──▶ API (Express) ──▶ Postgres
-  @bugfree/nextjs, @bugfree/express             symbolicate → group → store → alert
+  @dwarelab/bugfree-nextjs, -express        symbolicate → group → store → alert
                                                     ▲
 CI ── bugfree sourcemaps upload ────────────────────┘          Dashboard (Next.js) ──▶ API
 ```
@@ -29,7 +29,7 @@ CI ── bugfree sourcemaps upload ──────────────�
 | `packages/browser` | Browser SDK: global handlers, breadcrumbs, UA contexts |
 | `packages/node` | Node SDK: process handlers, per-request scope (AsyncLocalStorage), source context |
 | `packages/express` | `requestHandler()` + `errorHandler()` / `setupExpressErrorHandler(app)` |
-| `packages/nextjs` | `@bugfree/nextjs` (`captureRequestError`, `withBugfree`), `/client`, `/server` |
+| `packages/nextjs` | `@dwarelab/bugfree-nextjs` (`captureRequestError`, `withBugfree`), `/client`, `/server` |
 | `packages/cli` | `bugfree sourcemaps upload`, `bugfree releases new` |
 | `apps/api` | Ingest and dashboard API (Express 5 + Postgres) |
 | `apps/web` | Dashboard (Next.js 16) |
@@ -64,11 +64,29 @@ Tests: `npm test` (stack parsing, grouping, source-map symbolication).
 
 Create a project in the dashboard. Its **Settings & setup** page shows these snippets with your DSN filled in.
 
+### Install from GitHub Packages
+
+The SDKs are published to GitHub Packages under `@dwarelab`. GitHub requires a token to install from its
+npm registry, even for public packages: create a classic personal access token with the `read:packages`
+scope, then add this `.npmrc` to your app (and set `GITHUB_TOKEN` locally and in CI):
+
+```
+@dwarelab:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+| Package | For |
+|---|---|
+| `@dwarelab/bugfree-nextjs` | Next.js: browser, Node.js server and edge runtime |
+| `@dwarelab/bugfree-express` | Express 4 and 5 (includes the Node SDK) |
+| `@dwarelab/bugfree-node` | Plain Node.js services, workers and scripts |
+| `@dwarelab/bugfree-cli` | `bugfree sourcemaps upload` in CI |
+
 ### Next.js (App Router, 15+)
 
 ```ts
 // instrumentation-client.ts
-import { init } from "@bugfree/nextjs/client";
+import { init } from "@dwarelab/bugfree-nextjs/client";
 init(); // reads NEXT_PUBLIC_BUGFREE_DSN / NEXT_PUBLIC_BUGFREE_RELEASE
 ```
 
@@ -76,17 +94,21 @@ init(); // reads NEXT_PUBLIC_BUGFREE_DSN / NEXT_PUBLIC_BUGFREE_RELEASE
 // instrumentation.ts
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { init } = await import("@bugfree/nextjs/server");
+    const { init } = await import("@dwarelab/bugfree-nextjs/server");
     init();
   }
+  if (process.env.NEXT_RUNTIME === "edge") {
+    const { initEdge } = await import("@dwarelab/bugfree-nextjs");
+    initEdge();
+  }
 }
-export { captureRequestError as onRequestError } from "@bugfree/nextjs";
+export { captureRequestError as onRequestError } from "@dwarelab/bugfree-nextjs";
 ```
 
 ```tsx
 // app/error.tsx and app/global-error.tsx
 "use client";
-import { useReportError } from "@bugfree/nextjs/client";
+import { useReportError } from "@dwarelab/bugfree-nextjs/client";
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useReportError(error);
   return <button onClick={reset}>Try again</button>;
@@ -94,22 +116,31 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
 ```
 
 ```ts
-// next.config.ts: enables production browser + server source maps, passes BUGFREE_RELEASE to the client
-import { withBugfree } from "@bugfree/nextjs";
+// next.config.ts: enables production browser + server source maps and bakes in the release
+import { withBugfree } from "@dwarelab/bugfree-nextjs/config";
 export default withBugfree({ /* your config */ });
 ```
 
 ```bash
 # after `next build` (BUGFREE_URL, BUGFREE_AUTH_TOKEN = project secret key)
-bugfree sourcemaps upload --nextjs --release "$BUGFREE_RELEASE" --delete-after
+bugfree sourcemaps upload --nextjs --delete-after
 ```
+
+**Releases are detected automatically:** `BUGFREE_RELEASE` if set, otherwise the commit SHA from your CI or
+host (Vercel, GitHub Actions, GitLab, Render, Railway, Heroku, Netlify, Cloudflare Pages), otherwise
+`git rev-parse HEAD`. The SDK, `withBugfree` and the CLI all use the same order, so events and source maps match.
+
+Server render errors are tagged with the `digest` that `error.tsx` shows your users, so a user's
+"Reference: 2128315299" can be found with the search `digest:2128315299`. Hydration mismatches are tagged
+`react.hydration:yes`. On Vercel and other serverless hosts, events are handed to the request's
+`waitUntil`, so they're delivered even when the function freezes right after the response.
 
 `--delete-after` removes the browser maps from `.next/static` so they aren't served publicly. Server maps stay.
 
 ### Express
 
 ```js
-import * as Bugfree from "@bugfree/express";
+import * as Bugfree from "@dwarelab/bugfree-express";
 Bugfree.init({ dsn: process.env.BUGFREE_DSN, release: process.env.BUGFREE_RELEASE });
 
 import express from "express";
@@ -120,19 +151,31 @@ Bugfree.setupExpressErrorHandler(app); // reports errors without a status or wit
 app.use((err, req, res, next) => res.status(500).json({ eventId: res.locals.bugfreeEventId }));
 ```
 
+On **Express 4**, which ignores promises returned by handlers, the SDK forwards rejected async handlers to
+`next(err)`. Those errors reach your error handler with the request attached, instead of hanging the request.
+Disable it with `requestHandler({ patchAsyncHandlers: false })`.
+
+Outgoing requests made with `fetch` and with the `http`/`https` modules (axios, got, node-fetch) are recorded
+as breadcrumbs. On SIGTERM/SIGINT the SDK delivers queued events before the process exits, so errors from a
+rolling deploy aren't lost. If your app has its own signal handler, that handler still decides when to exit.
+
 Anywhere in your code: `captureException(err)`, `captureMessage(msg, "warning")`, `setUser({ id })`,
 `setTag(k, v)`, `addBreadcrumb({ category, message })`, `withScope(scope => …)`, `flush()`.
 
 SDK options (all platforms): `dsn`, `release`, `environment`, `sampleRate`, `ignoreErrors`, `beforeSend`,
-`beforeBreadcrumb`, `maxBreadcrumbs`, `initialTags`, `debug`. Node adds `unhandledRejections`
-(`"warn"` | `"strict"` | `"none"`), `consoleBreadcrumbs`, `fetchBreadcrumbs` and `includeSourceContext`.
+`beforeBreadcrumb`, `maxBreadcrumbs`, `initialTags`, `dedupe`, `debug`. Node adds `unhandledRejections`
+(`"warn"` | `"strict"` | `"none"`), `consoleBreadcrumbs`, `fetchBreadcrumbs`, `httpBreadcrumbs`,
+`flushOnShutdown` and `includeSourceContext`.
 
-### Using the SDKs before they're on npm
+## Connect an AI agent (MCP)
 
-The packages aren't published. From your app, either point at this repo
-(`"@bugfree/nextjs": "file:../bugfree/packages/nextjs"`, plus `core`, `browser` and `node`), or build tarballs with
-`npm pack -w @bugfree/core -w @bugfree/browser -w @bugfree/node -w @bugfree/nextjs -w @bugfree/express -w @bugfree/cli`
-and install those.
+The API serves an MCP endpoint at `<API_URL>/mcp` (Streamable HTTP). Create a token under **Team & account → API tokens**, then:
+
+```bash
+claude mcp add --transport http bugfree https://api.example.com/mcp --header "Authorization: Bearer bfu_…"
+```
+
+Tools: `list_projects`, `list_issues` (same search syntax as the dashboard), `get_issue` (details plus the latest event's symbolicated stack trace, breadcrumbs and request), `list_issue_events`, `get_event`, `find_event` (by SDK event id) and `update_issue_status`. Tokens act as the user who created them and see every project, like the dashboard.
 
 ## How it works
 
@@ -168,7 +211,17 @@ services (any reverse proxy) and set `TRUST_PROXY` if it isn't one hop.
 
 API environment variables are documented in `apps/api/.env.example`.
 
+## Releasing
+
+```bash
+node scripts/set-version.mjs 0.2.0   # bumps every package and their internal references
+npm install                          # refresh the lockfile
+git commit -am "Release 0.2.0" && git tag v0.2.0 && git push --follow-tags
+```
+
+The tag triggers `.github/workflows/release.yml`, which publishes the SDKs to GitHub Packages and pushes
+`ghcr.io/dwarelab/bugfree-api` and `ghcr.io/dwarelab/bugfree-web` images.
+
 ## Not built yet
 
-Performance tracing, session replay, an AI root-cause summary, per-project permissions, issue
-merging/assignment, and the edge runtime for Next.js server code (the Node.js runtime is supported).
+Performance tracing, session replay, an AI root-cause summary and per-project permissions.

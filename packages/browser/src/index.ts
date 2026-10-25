@@ -1,4 +1,4 @@
-import { getClient, setCurrentClient } from "@bugfree/core";
+import { getClient, setCurrentClient } from "@dwarelab/bugfree-core";
 import { BrowserClient, type BrowserOptions } from "./client";
 import {
   installConsoleBreadcrumbs,
@@ -27,7 +27,7 @@ export {
   type CaptureContext,
   type Level,
   type User,
-} from "@bugfree/core";
+} from "@dwarelab/bugfree-core";
 export { BrowserClient, parseUserAgent, type BrowserOptions } from "./client";
 
 const INSTALLED = Symbol.for("bugfree.browser.installed");

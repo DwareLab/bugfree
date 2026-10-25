@@ -1,5 +1,7 @@
+import diagnostics from "node:diagnostics_channel";
+import type { ClientRequest, IncomingMessage } from "node:http";
 import { format } from "node:util";
-import { type Level, scrubUrl, truncate } from "@bugfree/core";
+import { type Level, scrubUrl, truncate } from "@dwarelab/bugfree-core";
 import type { NodeClient } from "./client";
 
 const PATCHED = Symbol.for("bugfree.patched");
@@ -83,4 +85,59 @@ export function installFetchBreadcrumbs(get: () => NodeClient): void {
   } as typeof fetch & { [PATCHED]?: boolean };
   Object.defineProperty(patched, PATCHED, { value: true });
   globalThis.fetch = patched;
+}
+
+/**
+ * Outgoing http/https requests via diagnostics_channel (Node 20+), so axios and other
+ * http-module clients show up without monkey-patching.
+ */
+export function installHttpBreadcrumbs(get: () => NodeClient): void {
+  const started = new WeakMap<ClientRequest, number>();
+  const urlOf = (req: ClientRequest) => {
+    const host = req.getHeader("host") ?? req.host ?? "localhost";
+    return scrubUrl(`${req.protocol ?? "http:"}//${host}${req.path}`);
+  };
+  diagnostics.subscribe("http.client.request.start", (message) => {
+    started.set((message as { request: ClientRequest }).request, Date.now());
+  });
+  diagnostics.subscribe("http.client.response.finish", (message) => {
+    const { request, response } = message as { request: ClientRequest; response: IncomingMessage };
+    const status = response.statusCode ?? 0;
+    get().addBreadcrumb({
+      type: "http",
+      category: "http",
+      level: status >= 500 ? "error" : status >= 400 ? "warning" : "info",
+      data: { method: request.method, url: urlOf(request), status_code: status, duration_ms: Date.now() - (started.get(request) ?? Date.now()) },
+    });
+  });
+  diagnostics.subscribe("http.client.request.error", (message) => {
+    const { request, error } = message as { request: ClientRequest; error: Error };
+    get().addBreadcrumb({
+      type: "http",
+      category: "http",
+      level: "error",
+      data: { method: request.method, url: urlOf(request), error: String(error), duration_ms: Date.now() - (started.get(request) ?? Date.now()) },
+    });
+  });
+}
+
+/**
+ * Flushes queued events on SIGTERM / SIGINT. If nothing else handles the signal, the process then
+ * exits the way Node would have (re-raising the signal); otherwise the app's own handler stays in charge.
+ */
+export function installShutdownFlush(get: () => NodeClient): void {
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    const handler = () => {
+      void get()
+        .flush(2000)
+        .finally(() => {
+          const others = process.listeners(signal).filter((l) => l !== handler);
+          if (others.length === 0) {
+            process.removeListener(signal, handler);
+            process.kill(process.pid, signal);
+          }
+        });
+    };
+    process.on(signal, handler);
+  }
 }

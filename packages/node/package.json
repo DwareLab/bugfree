@@ -1,5 +1,5 @@
 {
-  "name": "@bugfree/node",
+  "name": "@dwarelab/bugfree-node",
   "version": "0.1.0",
   "description": "bugfree SDK for Node.js",
   "type": "module",
@@ -14,14 +14,15 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bugfree/core": "0.1.0"
+    "@dwarelab/bugfree-core": "0.1.0"
   },
   "license": "MIT",
   "repository": {
@@ -29,5 +30,8 @@
     "url": "git+https://github.com/DwareLab/bugfree.git",
     "directory": "packages/node"
   },
-  "homepage": "https://github.com/DwareLab/bugfree#readme"
+  "homepage": "https://github.com/DwareLab/bugfree#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
 }

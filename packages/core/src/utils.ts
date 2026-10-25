@@ -93,3 +93,16 @@ export function isError(value: unknown): value is Error {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+type WaitUntil = (promise: Promise<unknown>) => void;
+const REQUEST_CONTEXTS = [Symbol.for("@next/request-context"), Symbol.for("@vercel/request-context")];
+
+/** `waitUntil` of the current serverless request (Next.js / Vercel request context), if any. */
+export function getWaitUntil(): WaitUntil | undefined {
+  for (const sym of REQUEST_CONTEXTS) {
+    const ctx = (globalThis as Record<symbol, { get?: () => { waitUntil?: WaitUntil } | undefined } | undefined>)[sym];
+    const waitUntil = ctx?.get?.()?.waitUntil;
+    if (typeof waitUntil === "function") return waitUntil;
+  }
+  return undefined;
+}
