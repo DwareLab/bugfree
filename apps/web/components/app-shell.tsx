@@ -1,6 +1,6 @@
 "use client";
 
-import { Bug, FolderKanban, LogOut, Menu, Package, Plus, Settings, Users, X } from "lucide-react";
+import { Bug, FolderKanban, LogOut, Menu, Package, Plus, ScrollText, Settings, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
@@ -126,6 +126,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             )}
             {activeProject === p.id && (
               <div className="ml-4 border-l border-line pl-2">
+                {item(`/projects/${p.id}/logs`, <ScrollText className="size-3.5" aria-hidden />, "Logs", pathname.endsWith("/logs"))}
                 {item(`/projects/${p.id}/releases`, <Package className="size-3.5" aria-hidden />, "Releases", pathname.endsWith("/releases"))}
                 {item(`/projects/${p.id}/settings`, <Settings className="size-3.5" aria-hidden />, "Settings & setup", pathname.endsWith("/settings"))}
               </div>

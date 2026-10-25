@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bugfree docs</title>
+<meta name="description" content="The bugfree user guide: free, MIT-licensed, self-hosted error tracking for Next.js and Express. Deploy with Docker or on Cloudflare, add the SDKs, upload source maps, set up alerts, ship container logs and connect AI agents over MCP.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2315803d'/%3E%3Cpath d='M9 17l5 5 9-11' stroke='white' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --bg-code: #0f1419;
+  --fg: #16181d;
+  --fg-muted: #5b6270;
+  --fg-code: #e6e8eb;
+  --border: #e3e6ea;
+  --accent: #15803d;
+  --accent-soft: #e8f5ec;
+  --accent-fg: #ffffff;
+  --warn-bg: #fff7e6;
+  --warn-border: #f0c36d;
+  --note-bg: #eef4ff;
+  --note-border: #9ab8f5;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+  --radius: 10px;
+  --sidebar: 268px;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1014; --bg-soft: #151a20; --bg-code: #0a0d10; --fg: #e7e9ec; --fg-muted: #9aa3af; --fg-code: #e6e8eb;
+    --border: #262d36; --accent: #4ade80; --accent-soft: #11261a; --accent-fg: #06210f; --warn-bg: #2a2110;
+    --warn-border: #7a5b1d; --note-bg: #111d33; --note-border: #2f4f8a; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1014; --bg-soft: #151a20; --bg-code: #0a0d10; --fg: #e7e9ec; --fg-muted: #9aa3af; --fg-code: #e6e8eb;
+  --border: #262d36; --accent: #4ade80; --accent-soft: #11261a; --accent-fg: #06210f; --warn-bg: #2a2110;
+  --warn-border: #7a5b1d; --note-bg: #111d33; --note-border: #2f4f8a; --shadow: none;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre, kbd { font-family: var(--mono); font-size: .875em; }
+:not(pre) > code { background: var(--bg-soft); border: 1px solid var(--border); padding: .1em .35em; border-radius: 5px; overflow-wrap: anywhere; }
+
+/* Top bar */
+.topbar { position: sticky; top: 0; z-index: 20; height: 60px; display: flex; align-items: center; gap: 16px; padding: 0 20px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--fg); letter-spacing: -.01em; }
+.brand:hover { text-decoration: none; }
+.logo { width: 28px; height: 28px; border-radius: 8px; background: #15803d; display: grid; place-items: center; flex: none; }
+.logo svg { width: 18px; height: 18px; }
+.badge { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.topbar .spacer { flex: 1; }
+.topbar nav { display: flex; align-items: center; gap: 4px; }
+.topbar nav a, .icon-btn { color: var(--fg-muted); font-size: 14px; font-weight: 500; padding: 7px 10px; border-radius: 8px; }
+.topbar nav a:hover, .icon-btn:hover { color: var(--fg); background: var(--bg-soft); text-decoration: none; }
+.icon-btn { border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.icon-btn svg { width: 18px; height: 18px; }
+.menu-btn { display: none; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); max-width: 1320px; margin: 0 auto; }
+.sidebar { position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; padding: 24px 12px 40px 20px; border-right: 1px solid var(--border); }
+.sidebar h4 { margin: 20px 0 6px; padding: 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-muted); }
+.sidebar h4:first-child { margin-top: 0; }
+.sidebar a { display: block; padding: 5px 10px; border-radius: 7px; color: var(--fg-muted); font-size: 14.5px; }
+.sidebar a:hover { color: var(--fg); background: var(--bg-soft); text-decoration: none; }
+.sidebar a.active { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+main { padding: 8px 56px 96px; min-width: 0; }
+.content { max-width: 820px; }
+
+/* Hero */
+.hero { padding: 56px 0 40px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.hero h1 { font-size: clamp(34px, 5vw, 48px); line-height: 1.1; letter-spacing: -.03em; margin: 0 0 16px; }
+.hero h1 span { color: var(--accent); }
+.hero p.lead { font-size: 19px; color: var(--fg-muted); margin: 0 0 28px; max-width: 640px; }
+.cta { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 9px; font-weight: 600; font-size: 15px; border: 1px solid var(--border); color: var(--fg); background: var(--bg); box-shadow: var(--shadow); }
+.btn:hover { text-decoration: none; background: var(--bg-soft); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { filter: brightness(1.07); background: var(--accent); }
+.features { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-top: 40px; }
+.feature { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; background: var(--bg-soft); }
+.feature b { display: block; margin-bottom: 4px; }
+.feature p { margin: 0; font-size: 14.5px; color: var(--fg-muted); }
+
+/* Prose */
+section { padding-top: 24px; }
+h2 { font-size: 28px; letter-spacing: -.02em; margin: 40px 0 12px; padding-top: 8px; }
+h3 { font-size: 20px; letter-spacing: -.01em; margin: 32px 0 8px; }
+h4 { font-size: 16px; margin: 24px 0 6px; }
+.anchor { opacity: 0; margin-left: 8px; color: var(--fg-muted); font-weight: 400; }
+h2:hover .anchor { opacity: 1; }
+p, ul, ol { margin: 0 0 14px; }
+li { margin: 4px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 40px 0; }
+
+/* Code */
+.code { position: relative; margin: 0 0 18px; }
+.code .label { position: absolute; z-index: 1; top: 0; left: 14px; transform: translateY(-50%); font: 600 11px/1 var(--sans); letter-spacing: .04em; color: var(--fg-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; }
+pre { margin: 0; background: var(--bg-code); color: var(--fg-code); border-radius: var(--radius); padding: 18px; overflow-x: auto; line-height: 1.55; border: 1px solid var(--border); }
+.code.labelled { margin-top: 26px; }
+.code.labelled pre { padding-top: 24px; }
+pre .c { color: #7d8794; }
+pre .k { color: #ff9e7a; }
+pre .s { color: #a5d6a7; }
+.copy { position: absolute; top: 8px; right: 8px; border: 1px solid #2c333c; background: #1a2027; color: #c6cbd2; font: 500 12px var(--sans); padding: 4px 9px; border-radius: 6px; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.code:hover .copy, .copy:focus { opacity: 1; }
+@media (hover: none) { .copy { opacity: 1; } }
+
+/* Tables */
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--border); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td:first-child code { white-space: nowrap; }
+
+/* Callouts */
+.callout { border: 1px solid var(--note-border); background: var(--note-bg); border-radius: var(--radius); padding: 12px 16px; margin: 0 0 18px; font-size: 15px; }
+.callout.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+.callout.tip { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-soft); }
+.callout p:last-child, .callout ul:last-child { margin-bottom: 0; }
+
+/* Steps */
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps > li { counter-increment: step; position: relative; padding-left: 44px; margin: 0 0 22px; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+.steps > li > b:first-child { display: block; margin-bottom: 6px; }
+
+/* Tabs */
+.tabs { margin: 0 0 18px; }
+.tablist { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 14px; overflow-x: auto; }
+.tablist button { border: 0; background: none; color: var(--fg-muted); font: 600 14px var(--sans); padding: 8px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tablist button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tabpanel[hidden] { display: none; }
+
+/* Diagram */
+.diagram { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-soft); padding: 18px; margin: 0 0 18px; overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.diagram text { font: 13px var(--sans); fill: var(--fg); }
+.diagram .sub { font-size: 11.5px; fill: var(--fg-muted); }
+.diagram .box { fill: var(--bg); stroke: var(--border); stroke-width: 1.5; }
+.diagram .box.accent { stroke: var(--accent); }
+.diagram .line { stroke: var(--fg-muted); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+.diagram #arrow path { fill: var(--fg-muted); }
+
+footer { margin-top: 72px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--fg-muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+
+/* Mobile */
+@media (max-width: 960px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: fixed; z-index: 30; top: 60px; left: 0; width: min(300px, 85vw); background: var(--bg); transform: translateX(-100%); transition: transform .2s; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+  body.nav-open .sidebar { transform: none; }
+  .menu-btn { display: grid; }
+  main { padding: 8px 16px 72px; }
+  .topbar { padding: 0 12px; gap: 8px; }
+  .topbar nav .hide-sm { display: none; }
+  .hero { padding-top: 36px; }
+}
+@media (max-width: 420px) { .badge { display: none; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="icon-btn menu-btn" id="menu" aria-label="Open navigation">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <a class="brand" href="#top">
+    <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11"/></svg></span>
+    bugfree
+  </a>
+  <span class="badge">Free · MIT</span>
+  <span class="spacer"></span>
+  <nav>
+    <a class="hide-sm" href="#quickstart">Quick start</a>
+    <a class="hide-sm" href="#deploy">Deploy</a>
+    <a class="hide-sm" href="#nextjs">SDKs</a>
+    <a href="https://github.com/DwareLab/bugfree">GitHub</a>
+    <button class="icon-btn" id="theme" aria-label="Toggle dark mode">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </nav>
+</header>
+
+<div class="layout" id="top">
+  <aside class="sidebar" id="sidebar" aria-label="Documentation">
+    <h4>Getting started</h4>
+    <a href="#introduction">Introduction</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="#quickstart">Quick start (local)</a>
+    <h4>Self-hosting</h4>
+    <a href="#deploy">Choosing a setup</a>
+    <a href="#docker">Docker Compose</a>
+    <a href="#cloudflare">Cloudflare</a>
+    <a href="#domains">Domains, cookies &amp; TLS</a>
+    <a href="#configuration">Configuration</a>
+    <a href="#upgrading">Upgrades &amp; backups</a>
+    <h4>Instrument your app</h4>
+    <a href="#projects">Projects &amp; DSNs</a>
+    <a href="#nextjs">Next.js</a>
+    <a href="#express">Express</a>
+    <a href="#node">Node.js</a>
+    <a href="#sdk-api">SDK API &amp; options</a>
+    <a href="#sourcemaps">Releases &amp; source maps</a>
+    <h4>Using bugfree</h4>
+    <a href="#issues">Issues &amp; search</a>
+    <a href="#alerts">Alerts</a>
+    <a href="#logs">Container logs</a>
+    <a href="#mcp">AI agents (MCP)</a>
+    <a href="#limits">Retention &amp; limits</a>
+    <h4>Help</h4>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#faq">FAQ</a>
+    <a href="#license">License</a>
+  </aside>
+
+  <main>
+  <div class="content">
+
+    <div class="hero">
+      <h1>Error tracking you <span>own</span>.</h1>
+      <p class="lead">bugfree is a small, self-hosted Sentry alternative for Next.js and Express. It catches errors in the browser and on the server, un-minifies stack traces with your source maps, groups them into issues and tells you when something new breaks. It's free and open source.</p>
+      <div class="cta">
+        <a class="btn primary" href="#quickstart">Get started</a>
+        <a class="btn" href="#deploy">Deploy your own</a>
+        <a class="btn" href="https://github.com/DwareLab/bugfree">View on GitHub</a>
+      </div>
+      <div class="features">
+        <div class="feature"><b>Next.js and Express SDKs</b><p>Browser, Node.js server, edge runtime, React error boundaries, server actions and route handlers.</p></div>
+        <div class="feature"><b>Readable stack traces</b><p>Source maps from webpack and Turbopack turn minified frames back into your code, with source context.</p></div>
+        <div class="feature"><b>Smart grouping</b><p>Events are grouped into issues. You'll see users affected, tags, hourly trends and regressions.</p></div>
+        <div class="feature"><b>Alerts</b><p>Slack, Discord, any webhook, or email when a new issue appears or a fixed one comes back.</p></div>
+        <div class="feature"><b>Container logs</b><p>A small Docker agent keeps your containers' logs, so you can read what happened around an error.</p></div>
+        <div class="feature"><b>Built for AI agents</b><p>An MCP endpoint lets Claude and other agents list issues, read stack traces and resolve bugs.</p></div>
+      </div>
+    </div>
+
+    <section id="introduction">
+      <h2>Introduction<a class="anchor" href="#introduction">#</a></h2>
+      <p>bugfree has three parts:</p>
+      <ul>
+        <li><b>SDKs</b> (<code>@dwarelab/bugfree-*</code> on npm) that run inside your apps and report errors.</li>
+        <li><b>The API</b>, an Express + Postgres service that receives events, symbolicates and groups them, stores them and sends alerts.</li>
+        <li><b>The dashboard</b>, a Next.js app where you browse issues, manage projects and invite your team.</li>
+      </ul>
+      <p>You run the API and the dashboard yourself, either on a server with Docker Compose or on Cloudflare Workers. Your error data stays in your own Postgres database. There are no seats, quotas or paid tiers.</p>
+      <div class="callout tip"><p><b>Free and open source.</b> bugfree is MIT-licensed. Use it for side projects, at work, in commercial products, or as the starting point for your own fork.</p></div>
+    </section>
+
+    <section id="how-it-works">
+      <h2>How it works<a class="anchor" href="#how-it-works">#</a></h2>
+      <div class="diagram" role="img" aria-label="Your apps send events to the bugfree API, which stores them in Postgres. CI uploads source maps to the API. The dashboard reads from the API.">
+        <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+          <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs>
+          <rect class="box" x="10" y="30" width="190" height="64" rx="10"/>
+          <text x="105" y="58" text-anchor="middle">Your apps</text>
+          <text class="sub" x="105" y="78" text-anchor="middle">Next.js · Express · Node</text>
+          <rect class="box" x="10" y="160" width="190" height="64" rx="10"/>
+          <text x="105" y="188" text-anchor="middle">CI / build</text>
+          <text class="sub" x="105" y="208" text-anchor="middle">bugfree sourcemaps upload</text>
+          <rect class="box accent" x="290" y="85" width="190" height="84" rx="10"/>
+          <text x="385" y="115" text-anchor="middle" font-weight="600">bugfree API</text>
+          <text class="sub" x="385" y="136" text-anchor="middle">symbolicate → group</text>
+          <text class="sub" x="385" y="153" text-anchor="middle">→ store → alert</text>
+          <rect class="box" x="570" y="30" width="180" height="64" rx="10"/>
+          <text x="660" y="58" text-anchor="middle">Postgres</text>
+          <text class="sub" x="660" y="78" text-anchor="middle">events, issues, maps</text>
+          <rect class="box" x="570" y="160" width="180" height="64" rx="10"/>
+          <text x="660" y="188" text-anchor="middle">Dashboard</text>
+          <text class="sub" x="660" y="208" text-anchor="middle">you and your team</text>
+          <path class="line" d="M200 62 C 245 62, 250 105, 288 110"/>
+          <text class="sub" x="212" y="50">POST /api/ingest</text>
+          <path class="line" d="M200 192 C 245 192, 250 150, 288 145"/>
+          <path class="line" d="M480 112 C 520 100, 530 66, 568 62"/>
+          <path class="line" d="M568 192 C 530 188, 520 152, 482 145"/>
+        </svg>
+      </div>
+      <ol>
+        <li>An SDK catches an error and posts it to <code>/api/ingest/&lt;project&gt;?key=&lt;public key&gt;</code>, along with breadcrumbs (clicks, navigation, fetch calls, console), request data, user and tags.</li>
+        <li>The API un-minifies the stack trace with the source maps uploaded for that release.</li>
+        <li>The event is grouped into an <b>issue</b> by exception type and its top in-app frames. Alerts go out when the issue is new, or when it was resolved and has come back from a new release (a <b>regression</b>).</li>
+        <li>You open the issue in the dashboard and see the stack trace with source context, breadcrumbs, the request, tags and every event, plus the container logs from around that moment.</li>
+      </ol>
+    </section>
+
+    <section id="quickstart">
+      <h2>Quick start (local)<a class="anchor" href="#quickstart">#</a></h2>
+      <p>You can try bugfree on your own machine in a few minutes. You need <b>Node.js 20+</b> and <b>Docker</b>. It uses ports <code>3100</code> (dashboard), <code>4100</code> (API) and <code>5442</code> (Postgres).</p>
+      <div class="code"><pre>git clone https://github.com/DwareLab/bugfree.git
+cd bugfree
+npm install
+npm run build:sdk     <span class="c"># build the SDK packages used by the examples</span>
+npm run db:up         <span class="c"># Postgres in Docker</span>
+npm run dev:api       <span class="c"># API on :4100 (runs migrations on start)</span>
+npm run dev:web       <span class="c"># dashboard on :3100</span></pre></div>
+      <p>Open <a href="http://localhost:3100">http://localhost:3100</a>. On the first visit you'll be asked to create the admin account.</p>
+      <p>For demo data, run <code>npm run dev:seed</code>. It creates a dev account and demo projects, and writes the env files for the example apps. Then make them throw:</p>
+      <div class="code"><pre>npm run demo:express  <span class="c"># http://localhost:5050: click the links to throw errors</span>
+npm run demo:next     <span class="c"># production build + source map upload, then http://localhost:3200</span></pre></div>
+    </section>
+
+    <hr>
+
+    <section id="deploy">
+      <h2>Choosing a setup<a class="anchor" href="#deploy">#</a></h2>
+      <p>There are two supported ways to run bugfree in production. Both use the same code and the same Postgres schema, so you can move between them later.</p>
+      <div class="table-wrap"><table>
+        <tr><th></th><th><a href="#docker">Docker Compose</a></th><th><a href="#cloudflare">Cloudflare</a></th></tr>
+        <tr><td>Runs on</td><td>Any Linux server: a VPS, a home lab, Kubernetes</td><td>Cloudflare Workers</td></tr>
+        <tr><td>Database</td><td>Postgres container, included</td><td>A Postgres you bring (Neon, Supabase, RDS …), connected through Hyperdrive</td></tr>
+        <tr><td>Backups</td><td>Daily <code>pg_dump</code> container, included</td><td>Your Postgres provider's backups</td></tr>
+        <tr><td>TLS</td><td>Your reverse proxy (Caddy, nginx, Traefik)</td><td>Automatic</td></tr>
+        <tr><td>Container logs</td><td>Yes, with the Docker agent</td><td>Yes, for containers anywhere</td></tr>
+        <tr><td>Cost</td><td>The server</td><td>Workers Paid ($5/month) plus your database</td></tr>
+        <tr><td>Best for</td><td>Full control, everything on one box</td><td>No servers to patch; deploy with one command</td></tr>
+      </table></div>
+    </section>
+
+    <section id="docker">
+      <h2>Docker Compose<a class="anchor" href="#docker">#</a></h2>
+      <p>The repository's <code>docker-compose.yml</code> runs Postgres, the API, the dashboard and a backup job. Prebuilt images are published as <code>ghcr.io/dwarelab/bugfree-api</code> and <code>ghcr.io/dwarelab/bugfree-web</code>.</p>
+      <ol class="steps">
+        <li><b>Get the code and configure it</b>
+          <div class="code"><pre>git clone https://github.com/DwareLab/bugfree.git &amp;&amp; cd bugfree
+cp .env.example .env</pre></div>
+          <p>Edit <code>.env</code>. At minimum, set a long random <code>POSTGRES_PASSWORD</code> and your two public URLs:</p>
+          <div class="code labelled"><span class="label">.env</span><pre>POSTGRES_PASSWORD=change-me-to-a-long-random-string
+API_URL=https://api.example.com
+APP_URL=https://app.example.com
+COOKIE_DOMAIN=.example.com
+COOKIE_SECURE=true</pre></div>
+        </li>
+        <li><b>Start it</b>
+          <div class="code"><pre>docker compose up -d --build</pre></div>
+          <p>The API applies database migrations when it starts. The dashboard listens on <code>:3100</code> and the API on <code>:4100</code>.</p>
+        </li>
+        <li><b>Put TLS in front</b>
+          <p>Point <code>app.example.com</code> at port 3100 and <code>api.example.com</code> at port 4100 through any reverse proxy. With Caddy:</p>
+          <div class="code labelled"><span class="label">Caddyfile</span><pre>app.example.com {
+  reverse_proxy localhost:3100
+}
+api.example.com {
+  reverse_proxy localhost:4100
+}</pre></div>
+          <p>If there's more than one proxy hop in front of the API, set <code>TRUST_PROXY</code> to the number of hops so client IPs are correct.</p>
+        </li>
+        <li><b>Create your account</b>
+          <p>Open <code>https://app.example.com</code> and create the admin account. Then <a href="#projects">create a project</a>.</p>
+        </li>
+      </ol>
+      <div class="callout"><p><b>Note:</b> <code>NEXT_PUBLIC_API_URL</code> is baked into the dashboard at build time from <code>API_URL</code>. If you change <code>API_URL</code>, rebuild the dashboard with <code>docker compose up -d --build web</code>.</p></div>
+    </section>
+
+    <section id="cloudflare">
+      <h2>Cloudflare<a class="anchor" href="#cloudflare">#</a></h2>
+      <p>A single command deploys bugfree to <a href="https://developers.cloudflare.com/workers/">Cloudflare Workers</a>. You don't manage any servers, and TLS and scaling are handled for you.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Piece</th><th>Runs on</th></tr>
+        <tr><td>API</td><td>A Worker (<code>bugfree-api</code>) running the same Express app with Node.js compatibility</td></tr>
+        <tr><td>Database</td><td>Your Postgres, reached through <a href="https://developers.cloudflare.com/hyperdrive/">Hyperdrive</a>, Cloudflare's connection pooler</td></tr>
+        <tr><td>Dashboard</td><td>A Worker (<code>bugfree-web</code>) built with the <a href="https://opennext.js.org/cloudflare">OpenNext</a> adapter</td></tr>
+        <tr><td>Retention job</td><td>An hourly Cron Trigger on the API Worker</td></tr>
+      </table></div>
+
+      <h3>Before you start</h3>
+      <ul>
+        <li>A Cloudflare account on the <b>Workers Paid</b> plan ($5/month). Password hashing and source-map processing need more CPU time per request than the free plan allows.</li>
+        <li>A <b>Postgres 14+</b> database reachable from the internet, for example <a href="https://neon.tech">Neon</a>, <a href="https://supabase.com">Supabase</a>, AWS RDS, or your own server with TLS. It needs the <code>pg_trgm</code> extension, which most hosted providers include.</li>
+        <li>Optional: a domain on your Cloudflare account. Without one you get <code>*.workers.dev</code> URLs.</li>
+        <li>Node.js 20+ and a clone of the repository.</li>
+      </ul>
+
+      <h3>Deploy</h3>
+      <ol class="steps">
+        <li><b>Install</b>
+          <div class="code"><pre>git clone https://github.com/DwareLab/bugfree.git &amp;&amp; cd bugfree
+npm install</pre></div>
+        </li>
+        <li><b>Run the deploy script</b>
+          <div class="tabs" data-tabs>
+            <div class="tablist" role="tablist"><button role="tab" aria-selected="true">With your domain</button><button role="tab" aria-selected="false">On workers.dev</button></div>
+            <div class="tabpanel" role="tabpanel">
+              <div class="code"><pre>DATABASE_URL='postgres://user:pass@host:5432/bugfree?sslmode=require' \
+  npm run deploy:cloudflare -- --domain example.com</pre></div>
+              <p>The dashboard is served on <code>app.example.com</code> and the API on <code>api.example.com</code>. For other hostnames, pass <code>--app-host</code> and <code>--api-host</code>.</p>
+            </div>
+            <div class="tabpanel" role="tabpanel" hidden>
+              <div class="code"><pre>DATABASE_URL='postgres://user:pass@host:5432/bugfree?sslmode=require' \
+  npm run deploy:cloudflare</pre></div>
+              <p>Both Workers get URLs like <code>https://bugfree-api.&lt;your-subdomain&gt;.workers.dev</code>. You can switch to your own domain later by re-running with <code>--domain</code>. The workers.dev URLs stay active, so DSNs that use them keep working.</p>
+            </div>
+          </div>
+          <p>The first time, a browser window opens so you can log in to Cloudflare. Then the script:</p>
+          <ol>
+            <li>creates a Hyperdrive config for your database with query caching <b>turned off</b>, so the dashboard always shows fresh data,</li>
+            <li>deploys the API Worker with your URLs, cookie settings and the hourly cron,</li>
+            <li>builds the dashboard against your API URL and deploys it,</li>
+            <li>calls the API's <code>/healthz</code>, which applies the database migrations on first start.</li>
+          </ol>
+        </li>
+        <li><b>Open the dashboard</b>
+          <p>The script prints your URLs at the end. Open the dashboard, create the admin account and <a href="#projects">create a project</a>. A new custom domain can take a minute or two to get its certificate.</p>
+        </li>
+      </ol>
+      <div class="callout tip"><p><b>To upgrade, run the same command again.</b> The script saves the last run's settings, including the Hyperdrive id and your domain, in <code>.cloudflare.json</code> (gitignored). After <code>git pull &amp;&amp; npm install</code>, run <code>npm run deploy:cloudflare</code> with no arguments. New database migrations are applied automatically.</p></div>
+
+      <h3>Options</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Flag / variable</th><th>Description</th></tr>
+        <tr><td><code>--domain &lt;domain&gt;</code></td><td>Serve on <code>app.&lt;domain&gt;</code> and <code>api.&lt;domain&gt;</code>. The domain must be a zone on the same Cloudflare account.</td></tr>
+        <tr><td><code>--app-host</code>, <code>--api-host</code></td><td>Your own hostnames instead of <code>app.</code> and <code>api.</code></td></tr>
+        <tr><td><code>--name &lt;prefix&gt;</code></td><td>Worker name prefix (default <code>bugfree</code>). Use it to run several instances, e.g. <code>--name bugfree-staging</code>.</td></tr>
+        <tr><td><code>--only api|web</code></td><td>Deploy just one of the two Workers</td></tr>
+        <tr><td><code>DATABASE_URL</code></td><td>Your Postgres URL. Only needed on the first deploy, when the Hyperdrive config is created.</td></tr>
+        <tr><td><code>HYPERDRIVE_ID</code></td><td>Use an existing Hyperdrive config, e.g. in CI</td></tr>
+        <tr><td><code>SMTP_URL</code></td><td>Stored as an encrypted Worker secret to enable email alerts. Workers can't connect to port 25, so use 465 or 587.</td></tr>
+        <tr><td><code>ALERT_FROM</code>, <code>RETENTION_DAYS</code>, <code>LOG_RETENTION_DAYS</code>, <code>ARTIFACT_RETENTION_DAYS</code>, <code>ARTIFACT_KEEP_RELEASES</code>, <code>SESSION_DAYS</code>, <code>INGEST_RATE_LIMIT</code>, <code>LOG_RATE_LIMIT</code></td><td>Passed to the API when set. See <a href="#configuration">Configuration</a>.</td></tr>
+      </table></div>
+
+      <h3>Deploy from CI</h3>
+      <p>Create a Cloudflare API token from the <b>Edit Cloudflare Workers</b> template. Add <b>Hyperdrive: Edit</b>, and <b>Zone → DNS: Edit</b> if you use a custom domain. Copy the Hyperdrive id from <code>.cloudflare.json</code> into a CI variable, then:</p>
+      <div class="code labelled"><span class="label">.github/workflows/deploy-bugfree.yml</span><pre>- run: npm ci
+- run: npm run deploy:cloudflare -- --domain example.com
+  env:
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    HYPERDRIVE_ID: ${{ vars.BUGFREE_HYPERDRIVE_ID }}</pre></div>
+
+      <h3>Try the Workers build locally</h3>
+      <p>These run the API and dashboard in <code>workerd</code>, Cloudflare's runtime, against the local Docker Postgres:</p>
+      <div class="code"><pre>npm run db:up
+npm run dev:worker -w @bugfree/api       <span class="c"># API on http://localhost:8787</span>
+NEXT_PUBLIC_API_URL=http://localhost:8787 \
+  npm run preview:worker -w @bugfree/web <span class="c"># dashboard; set the API's APP_URL to match its port</span></pre></div>
+
+      <h3>Differences from Docker</h3>
+      <ul>
+        <li><b>Rate limits are per Worker instance.</b> Cloudflare runs many copies of the API, so <code>INGEST_RATE_LIMIT</code> and login throttling are approximate. If you need a hard global cap, add a <a href="https://developers.cloudflare.com/waf/rate-limiting-rules/">WAF rate limiting rule</a>.</li>
+        <li><b>Source map uploads</b> are limited by Workers' 100 MB request body and 128 MB of memory. Keep individual maps well under 50 MB.</li>
+        <li><b>Backups</b> come from your Postgres provider. The Compose backup container isn't part of this setup.</li>
+        <li><b>API logs:</b> run <code>npx wrangler tail bugfree-api</code>, or open <b>Workers &amp; Pages → bugfree-api → Logs</b> in the Cloudflare dashboard.</li>
+      </ul>
+
+      <h3>Removing it</h3>
+      <div class="code"><pre>npx wrangler delete bugfree-web
+npx wrangler delete bugfree-api
+npx wrangler hyperdrive delete &lt;id from .cloudflare.json&gt;</pre></div>
+      <p>Your data stays in your Postgres database until you drop it.</p>
+    </section>
+
+    <section id="domains">
+      <h2>Domains, cookies &amp; TLS<a class="anchor" href="#domains">#</a></h2>
+      <p>The dashboard and the API run on <b>separate subdomains of one domain</b>, for example <code>app.example.com</code> and <code>api.example.com</code>. The browser calls the API directly, with no proxy in between.</p>
+      <ul>
+        <li>The API allows credentialed CORS only from the origins listed in <code>APP_URL</code>.</li>
+        <li>The session cookie is <code>HttpOnly</code>, <code>SameSite=Lax</code> and, in production, <code>Secure</code>. Set <code>COOKIE_DOMAIN=.example.com</code> to share it across your subdomains. The Cloudflare script sets it for you.</li>
+        <li>Every write is CSRF-checked against the <code>Origin</code> header.</li>
+        <li>Because both hosts are on the same site, the cookie keeps working in browsers that block third-party cookies.</li>
+      </ul>
+      <div class="callout warn"><p><b>Keep both on one domain.</b> If the dashboard is on <code>example.com</code> and the API on <code>other.net</code>, browsers treat the session cookie as third-party and logins won't stick.</p></div>
+    </section>
+
+    <section id="configuration">
+      <h2>Configuration<a class="anchor" href="#configuration">#</a></h2>
+      <p>The API is configured with environment variables. With Docker Compose they come from <code>.env</code>. On Cloudflare the deploy script sets them.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>DATABASE_URL</code></td><td>local dev DB</td><td>Postgres connection string. Required in production (on Cloudflare, Hyperdrive provides it).</td></tr>
+        <tr><td><code>API_URL</code></td><td><code>http://localhost:4100</code></td><td>Public URL of the API. It appears in DSNs, so your apps must be able to reach it.</td></tr>
+        <tr><td><code>APP_URL</code></td><td><code>http://localhost:3100</code></td><td>Dashboard origin(s), comma-separated. The first one is used in alert links.</td></tr>
+        <tr><td><code>COOKIE_DOMAIN</code></td><td>unset</td><td>For example <code>.example.com</code>, so the session cookie is shared across subdomains</td></tr>
+        <tr><td><code>COOKIE_SECURE</code></td><td><code>true</code> in production</td><td>Send the session cookie over HTTPS only</td></tr>
+        <tr><td><code>SESSION_DAYS</code></td><td><code>30</code></td><td>How long a login lasts</td></tr>
+        <tr><td><code>RETENTION_DAYS</code></td><td><code>30</code></td><td>Events older than this are deleted. Issue counters and charts are kept.</td></tr>
+        <tr><td><code>LOG_RETENTION_DAYS</code></td><td><code>14</code></td><td>How long <a href="#logs">container log lines</a> are kept</td></tr>
+        <tr><td><code>ARTIFACT_RETENTION_DAYS</code></td><td><code>90</code></td><td>A release's source maps are deleted after this many days without uploads or events…</td></tr>
+        <tr><td><code>ARTIFACT_KEEP_RELEASES</code></td><td><code>5</code></td><td>…except for each project's newest releases, which always keep theirs</td></tr>
+        <tr><td><code>INGEST_RATE_LIMIT</code></td><td><code>50</code></td><td>Max events per second per project (bursts up to 10×)</td></tr>
+        <tr><td><code>LOG_RATE_LIMIT</code></td><td><code>2000</code></td><td>Max log lines per second per project (bursts up to 10×)</td></tr>
+        <tr><td><code>SMTP_URL</code></td><td>unset</td><td>For example <code>smtp://user:pass@smtp.example.com:587</code>. Enables email alerts.</td></tr>
+        <tr><td><code>ALERT_FROM</code></td><td><code>bugfree &lt;alerts@localhost&gt;</code></td><td>From address for alert emails</td></tr>
+        <tr><td><code>TRUST_PROXY</code></td><td><code>1</code> in production</td><td>Number of reverse proxy hops in front of the API, or an Express <code>trust proxy</code> value</td></tr>
+        <tr><td><code>PORT</code></td><td><code>4100</code></td><td>Port the API listens on (Docker / Node.js)</td></tr>
+      </table></div>
+      <p>Docker Compose also reads <code>BUGFREE_VERSION</code> (image tag, default <code>latest</code>), <code>POSTGRES_PASSWORD</code>, <code>BACKUP_KEEP_DAYS</code> and <code>BACKUP_INTERVAL_HOURS</code>.</p>
+    </section>
+
+    <section id="upgrading">
+      <h2>Upgrades &amp; backups<a class="anchor" href="#upgrading">#</a></h2>
+      <h3>Upgrading</h3>
+      <p>Database migrations run automatically when the API starts, so to upgrade you just run the new version.</p>
+      <div class="tabs" data-tabs>
+        <div class="tablist" role="tablist"><button role="tab" aria-selected="true">Docker Compose</button><button role="tab" aria-selected="false">Cloudflare</button></div>
+        <div class="tabpanel" role="tabpanel"><div class="code"><pre>git pull
+<span class="c"># pin a release in .env (BUGFREE_VERSION=0.2.0) or keep "latest"</span>
+docker compose pull &amp;&amp; docker compose up -d</pre></div></div>
+        <div class="tabpanel" role="tabpanel" hidden><div class="code"><pre>git pull
+npm install
+npm run deploy:cloudflare</pre></div></div>
+      </div>
+      <h3>Backups (Docker Compose)</h3>
+      <p>The <code>backup</code> service writes a compressed <code>pg_dump</code> to <code>./backups</code> every <code>BACKUP_INTERVAL_HOURS</code> (default 24) and keeps <code>BACKUP_KEEP_DAYS</code> (default 7) days of them. Copy that folder somewhere off the server. To restore:</p>
+      <div class="code"><pre>docker compose exec -T db pg_restore -U bugfree -d bugfree --clean &lt; backups/bugfree-&lt;date&gt;.dump</pre></div>
+    </section>
+
+    <hr>
+
+    <section id="projects">
+      <h2>Projects &amp; DSNs<a class="anchor" href="#projects">#</a></h2>
+      <p>A <b>project</b> is one app or service. Create one in the dashboard. Its <b>Settings &amp; setup</b> page shows copy-paste snippets with your values filled in, plus two keys:</p>
+      <ul>
+        <li><b>DSN</b>: a URL containing the API address, the project id and the <b>public key</b>. It goes into your app and is safe to ship to browsers, because it can only submit events.</li>
+        <li><b>Secret key</b>: used by the CLI to upload source maps. Keep it in CI secrets and never ship it to a browser.</li>
+      </ul>
+      <p>Each project has its own alert settings. Use the <b>Team &amp; account</b> page to invite members and create <a href="#mcp">API tokens</a>.</p>
+    </section>
+
+    <section id="nextjs">
+      <h2>Next.js<a class="anchor" href="#nextjs">#</a></h2>
+      <p>For the App Router on Next.js 15 and later. One package covers the browser, the Node.js server and the edge runtime.</p>
+      <div class="code"><pre>npm install @dwarelab/bugfree-nextjs
+npm install -D @dwarelab/bugfree-cli</pre></div>
+      <ol class="steps">
+        <li><b>Set the environment variables</b>
+          <div class="code labelled"><span class="label">.env</span><pre>NEXT_PUBLIC_BUGFREE_DSN=https://…@api.example.com/1   <span class="c"># from the project's setup page</span>
+<span class="c"># optional: set per deploy (git sha, version …); must match the source map upload</span>
+BUGFREE_RELEASE=my-app@1.0.0</pre></div>
+        </li>
+        <li><b>Initialize in the browser</b>
+          <div class="code labelled"><span class="label">instrumentation-client.ts</span><pre><span class="k">import</span> { init } <span class="k">from</span> <span class="s">"@dwarelab/bugfree-nextjs/client"</span>;
+init(); <span class="c">// reads NEXT_PUBLIC_BUGFREE_DSN / NEXT_PUBLIC_BUGFREE_RELEASE</span></pre></div>
+        </li>
+        <li><b>Initialize on the server and edge</b>
+          <div class="code labelled"><span class="label">instrumentation.ts</span><pre><span class="k">export async function</span> register() {
+  <span class="k">if</span> (process.env.NEXT_RUNTIME === <span class="s">"nodejs"</span>) {
+    <span class="k">const</span> { init } = <span class="k">await import</span>(<span class="s">"@dwarelab/bugfree-nextjs/server"</span>);
+    init();
+  }
+  <span class="k">if</span> (process.env.NEXT_RUNTIME === <span class="s">"edge"</span>) {
+    <span class="k">const</span> { initEdge } = <span class="k">await import</span>(<span class="s">"@dwarelab/bugfree-nextjs"</span>);
+    initEdge();
+  }
+}
+<span class="k">export</span> { captureRequestError <span class="k">as</span> onRequestError } <span class="k">from</span> <span class="s">"@dwarelab/bugfree-nextjs"</span>;</pre></div>
+          <p><code>onRequestError</code> reports errors from server components, route handlers and server actions.</p>
+        </li>
+        <li><b>Report errors caught by error boundaries</b>
+          <div class="code labelled"><span class="label">app/error.tsx and app/global-error.tsx</span><pre><span class="s">"use client"</span>;
+<span class="k">import</span> { useReportError } <span class="k">from</span> <span class="s">"@dwarelab/bugfree-nextjs/client"</span>;
+
+<span class="k">export default function</span> Error({ error, reset }: { error: Error &amp; { digest?: string }; reset: () =&gt; <span class="k">void</span> }) {
+  useReportError(error);
+  <span class="k">return</span> &lt;button onClick={reset}&gt;Try again&lt;/button&gt;;
+}</pre></div>
+        </li>
+        <li><b>Enable source maps</b>
+          <div class="code labelled"><span class="label">next.config.ts</span><pre><span class="k">import</span> { withBugfree } <span class="k">from</span> <span class="s">"@dwarelab/bugfree-nextjs/config"</span>;
+<span class="k">export default</span> withBugfree({ <span class="c">/* your config */</span> });</pre></div>
+          <p>This turns on production browser and server source maps and bakes the release into the build.</p>
+        </li>
+        <li><b>Upload source maps after each build</b>
+          <div class="code"><pre><span class="c"># BUGFREE_URL = your API URL, BUGFREE_AUTH_TOKEN = the project's secret key</span>
+next build &amp;&amp; bugfree sourcemaps upload --nextjs --delete-after</pre></div>
+          <p><code>--delete-after</code> removes the browser maps from <code>.next/static</code> so they aren't served publicly. Server maps stay. See <a href="#sourcemaps">Releases &amp; source maps</a>.</p>
+        </li>
+      </ol>
+      <h4>Good to know</h4>
+      <ul>
+        <li>Server render errors are tagged with the <code>digest</code> that <code>error.tsx</code> shows your users. If a user sends you "Reference: 2128315299", search for <code>digest:2128315299</code>.</li>
+        <li>Hydration mismatches are tagged <code>react.hydration:yes</code>.</li>
+        <li>On Vercel and other serverless hosts, events are handed to the request's <code>waitUntil</code>, so they're delivered even when the function freezes right after the response.</li>
+      </ul>
+    </section>
+
+    <section id="express">
+      <h2>Express<a class="anchor" href="#express">#</a></h2>
+      <p>Works with Express 4 and 5. The package includes the Node.js SDK.</p>
+      <div class="code"><pre>npm install @dwarelab/bugfree-express</pre></div>
+      <div class="code labelled"><span class="label">server.js</span><pre><span class="k">import</span> * <span class="k">as</span> Bugfree <span class="k">from</span> <span class="s">"@dwarelab/bugfree-express"</span>;
+Bugfree.init({ dsn: process.env.BUGFREE_DSN, release: process.env.BUGFREE_RELEASE });
+
+<span class="k">import</span> express <span class="k">from</span> <span class="s">"express"</span>;
+<span class="k">const</span> app = express();
+app.use(Bugfree.requestHandler());     <span class="c">// per-request scope: breadcrumbs, user, request data</span>
+
+<span class="c">// … your routes …</span>
+
+Bugfree.setupExpressErrorHandler(app); <span class="c">// reports errors without a status or with status &gt;= 500</span>
+app.use((err, req, res, next) =&gt; res.status(500).json({ eventId: res.locals.bugfreeEventId }));</pre></div>
+      <ul>
+        <li>Call <code>init()</code> <b>before</b> importing anything else so that every module is covered.</li>
+        <li><b>Express 4</b> ignores promises returned by handlers. The SDK forwards rejected async handlers to <code>next(err)</code>, so those errors reach your error handler with the request attached instead of hanging the request. Turn this off with <code>requestHandler({ patchAsyncHandlers: false })</code>.</li>
+        <li>Outgoing requests made with <code>fetch</code> and with <code>http</code>/<code>https</code> (axios, got, node-fetch) are recorded as breadcrumbs.</li>
+        <li>On SIGTERM/SIGINT the SDK delivers queued events before the process exits, so errors from a rolling deploy aren't lost.</li>
+      </ul>
+    </section>
+
+    <section id="node">
+      <h2>Node.js<a class="anchor" href="#node">#</a></h2>
+      <p>For plain Node.js services, queue workers, cron jobs and scripts:</p>
+      <div class="code"><pre>npm install @dwarelab/bugfree-node</pre></div>
+      <div class="code labelled"><span class="label">worker.js</span><pre><span class="k">import</span> * <span class="k">as</span> Bugfree <span class="k">from</span> <span class="s">"@dwarelab/bugfree-node"</span>;
+Bugfree.init({ dsn: process.env.BUGFREE_DSN, environment: <span class="s">"production"</span> });
+
+<span class="k">try</span> {
+  <span class="k">await</span> processJob(job);
+} <span class="k">catch</span> (err) {
+  Bugfree.captureException(err);
+}
+<span class="k">await</span> Bugfree.flush(); <span class="c">// before a short-lived script exits</span></pre></div>
+      <p>Uncaught exceptions and unhandled rejections are reported automatically.</p>
+    </section>
+
+    <section id="sdk-api">
+      <h2>SDK API &amp; options<a class="anchor" href="#sdk-api">#</a></h2>
+      <h3>Functions</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Function</th><th>What it does</th></tr>
+        <tr><td><code>captureException(err)</code></td><td>Report an error you caught. Returns the event id.</td></tr>
+        <tr><td><code>captureMessage(msg, level?)</code></td><td>Report a message, e.g. <code>captureMessage("Payment retried", "warning")</code></td></tr>
+        <tr><td><code>setUser({ id, … })</code></td><td>Attach the current user. Issues show how many users are affected.</td></tr>
+        <tr><td><code>setTag(key, value)</code></td><td>Add a searchable tag, e.g. <code>setTag("tenant", "acme")</code></td></tr>
+        <tr><td><code>addBreadcrumb({ category, message })</code></td><td>Record a custom step leading up to an error</td></tr>
+        <tr><td><code>withScope(scope =&gt; …)</code></td><td>Apply tags, user or a fingerprint only to the events captured inside the callback</td></tr>
+        <tr><td><code>flush()</code></td><td>Wait until queued events are delivered</td></tr>
+      </table></div>
+      <h3>Options</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Option</th><th>Description</th></tr>
+        <tr><td><code>dsn</code></td><td>Where to send events. Without it, the SDK does nothing.</td></tr>
+        <tr><td><code>release</code></td><td>Version or commit of this build. Detected automatically (see <a href="#sourcemaps">below</a>).</td></tr>
+        <tr><td><code>environment</code></td><td>e.g. <code>production</code> or <code>staging</code>. You can filter on it in the dashboard.</td></tr>
+        <tr><td><code>sampleRate</code></td><td>0–1, the share of errors to send</td></tr>
+        <tr><td><code>ignoreErrors</code></td><td>Strings or regular expressions. Matching errors are dropped.</td></tr>
+        <tr><td><code>beforeSend(event)</code></td><td>Edit an event before it's sent (e.g. to scrub data), or return <code>null</code> to drop it</td></tr>
+        <tr><td><code>beforeBreadcrumb(crumb)</code></td><td>Edit or drop a breadcrumb</td></tr>
+        <tr><td><code>maxBreadcrumbs</code></td><td>How many breadcrumbs to keep per event</td></tr>
+        <tr><td><code>initialTags</code></td><td>Tags added to every event</td></tr>
+        <tr><td><code>dedupe</code></td><td>Drop the same error when it's reported twice in a row</td></tr>
+        <tr><td><code>debug</code></td><td>Log what the SDK does to the console</td></tr>
+      </table></div>
+      <p>The Node.js SDK, which Express and the Next.js server also use, adds <code>unhandledRejections</code> (<code>"warn"</code> | <code>"strict"</code> | <code>"none"</code>), <code>consoleBreadcrumbs</code>, <code>fetchBreadcrumbs</code>, <code>httpBreadcrumbs</code>, <code>flushOnShutdown</code> and <code>includeSourceContext</code>.</p>
+    </section>
+
+    <section id="sourcemaps">
+      <h2>Releases &amp; source maps<a class="anchor" href="#sourcemaps">#</a></h2>
+      <p>Production JavaScript is minified, so a raw stack trace points at something like <code>main-3f2a.js:1:48213</code>. Once you upload your source maps, bugfree shows the original file, line and surrounding code instead. Maps are stored per <b>release</b>, and each event is symbolicated with the maps of the release it reports.</p>
+      <h3>How the release is detected</h3>
+      <p>The SDK, <code>withBugfree</code> and the CLI all pick the release the same way, so events and maps always match:</p>
+      <ol>
+        <li><code>BUGFREE_RELEASE</code>, if it's set,</li>
+        <li>otherwise the commit SHA from your CI or host: Vercel, GitHub Actions, GitLab, Render, Railway, Heroku, Netlify or Cloudflare Pages,</li>
+        <li>otherwise <code>git rev-parse HEAD</code>.</li>
+      </ol>
+      <h3>The CLI</h3>
+      <div class="code"><pre>npm install -D @dwarelab/bugfree-cli
+
+<span class="c"># Next.js: uploads .next/static and .next/server maps</span>
+bugfree sourcemaps upload --nextjs --delete-after
+
+<span class="c"># Any bundler: upload a directory; artifact names start with the URL prefix</span>
+bugfree sourcemaps upload dist --url-prefix ~/dist --release 1.4.0
+
+<span class="c"># Create a release without uploading anything</span>
+bugfree releases new 1.4.0</pre></div>
+      <div class="table-wrap"><table>
+        <tr><th>Flag</th><th>Env variable</th><th>Description</th></tr>
+        <tr><td><code>--url</code></td><td><code>BUGFREE_URL</code></td><td>Your API URL</td></tr>
+        <tr><td><code>--token</code></td><td><code>BUGFREE_AUTH_TOKEN</code></td><td>The project's secret key</td></tr>
+        <tr><td><code>--release</code></td><td><code>BUGFREE_RELEASE</code></td><td>Release the maps belong to. Detected if omitted.</td></tr>
+        <tr><td><code>--nextjs</code></td><td></td><td>Next.js preset</td></tr>
+        <tr><td><code>--url-prefix</code></td><td></td><td>Prefix for artifact names (default <code>~/</code>)</td></tr>
+        <tr><td><code>--delete-after</code></td><td></td><td>Delete uploaded maps that would otherwise be served publicly</td></tr>
+      </table></div>
+      <h3>In GitHub Actions</h3>
+      <div class="code labelled"><span class="label">.github/workflows/deploy.yml</span><pre>- run: npm run build
+- run: npx bugfree sourcemaps upload --nextjs --delete-after
+  env:
+    BUGFREE_URL: https://api.example.com
+    BUGFREE_AUTH_TOKEN: ${{ secrets.BUGFREE_AUTH_TOKEN }}</pre></div>
+      <p>A project's <b>Releases</b> page lists every release with its artifact count and size, new issues and events. You can delete a release's maps there. Maps of releases that have been idle for <code>ARTIFACT_RETENTION_DAYS</code> are cleaned up automatically, except for each project's newest few releases.</p>
+    </section>
+
+    <hr>
+
+    <section id="issues">
+      <h2>Issues &amp; search<a class="anchor" href="#issues">#</a></h2>
+      <p>The issue list shows each issue's title, where it happened, how often it occurs, the users affected and a 24-hour sparkline. Select several issues to resolve or ignore them in bulk.</p>
+      <h3>Statuses</h3>
+      <ul>
+        <li><b>Unresolved</b>: the default view.</li>
+        <li><b>Resolved</b>: you shipped a fix. If the error comes back from a release that hadn't had it before, the issue reopens as a <b>regression</b> and alerts fire. Events from releases that already had it, such as browser tabs still running the old JavaScript, are counted but leave it resolved. Events without a release always reopen it.</li>
+        <li><b>Ignored</b>: hidden from the default view.</li>
+      </ul>
+      <h3>Search syntax</h3>
+      <p>Free text matches the title and the culprit. <code>key:value</code> filters on tags. Put values that contain spaces in quotes.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Query</th><th>Finds</th></tr>
+        <tr><td><code>TypeError checkout</code></td><td>Issues whose title or culprit contains both words</td></tr>
+        <tr><td><code>is:resolved</code></td><td>Resolved issues (also <code>unresolved</code>, <code>ignored</code>, <code>all</code>)</td></tr>
+        <tr><td><code>browser:"Mobile Safari"</code></td><td>Issues with that tag value (prefix match)</td></tr>
+        <tr><td><code>environment:production</code></td><td>Issues seen in production</td></tr>
+        <tr><td><code>digest:2128315299</code></td><td>The Next.js server error behind a user's error reference</td></tr>
+        <tr><td><code>react.hydration:yes</code></td><td>Hydration mismatches</td></tr>
+      </table></div>
+      <p>Any tag you set with <code>setTag</code> can be searched the same way.</p>
+      <h3>How grouping works</h3>
+      <p>The fingerprint is the exception type plus the top 5 in-app frames, with paths normalized and line numbers and build hashes removed. Events without a stack are grouped by their normalized message. To control grouping yourself, set a fingerprint:</p>
+      <div class="code"><pre>Bugfree.withScope((scope) =&gt; {
+  scope.setFingerprint([<span class="s">"payment-timeout"</span>]);   <span class="c">// or ["{{ default }}", "eu"] to extend the default</span>
+  Bugfree.captureException(err);
+});</pre></div>
+    </section>
+
+    <section id="alerts">
+      <h2>Alerts<a class="anchor" href="#alerts">#</a></h2>
+      <p>Each project can notify you when a <b>new issue</b> appears and when a resolved issue <b>regresses</b>. You get at most one alert per issue every 30 minutes. Set alerts up in the project's settings, then use <b>Send test alert</b> to check them.</p>
+      <h3>Webhook (Slack, Discord, anything)</h3>
+      <p>Paste a Slack incoming webhook or Discord webhook URL. Other services receive the same JSON and can use the structured <code>issue</code> object:</p>
+      <div class="code labelled"><span class="label">POST body</span><pre>{
+  <span class="s">"text"</span>: <span class="s">"*[shop] New issue:* TypeError: …"</span>,      <span class="c">// Slack</span>
+  <span class="s">"content"</span>: <span class="s">"**[shop] New issue:** TypeError: …"</span>, <span class="c">// Discord</span>
+  <span class="s">"kind"</span>: <span class="s">"new"</span>,                                <span class="c">// or "regression"</span>
+  <span class="s">"issue"</span>: { <span class="s">"id"</span>: 42, <span class="s">"title"</span>: <span class="s">"…"</span>, <span class="s">"culprit"</span>: <span class="s">"…"</span>, <span class="s">"level"</span>: <span class="s">"error"</span>,
+             <span class="s">"project"</span>: <span class="s">"shop"</span>, <span class="s">"release"</span>: <span class="s">"1.4.0"</span>, <span class="s">"url"</span>: <span class="s">"https://app.example.com/issues/42"</span> }
+}</pre></div>
+      <h3>Email</h3>
+      <p>Set <code>SMTP_URL</code> (and optionally <code>ALERT_FROM</code>) on the API, then add comma-separated recipients in the project's alert settings.</p>
+    </section>
+
+    <section id="logs">
+      <h2>Container logs<a class="anchor" href="#logs">#</a></h2>
+      <p><code>docker logs</code> only lasts as long as the container. When <code>docker compose up</code> recreates it, the history is gone. Run the bugfree agent once per Docker host and every container's stdout/stderr is kept in bugfree instead, under <b>Logs</b> in the project sidebar. The project's <b>Settings &amp; setup</b> page has this snippet with your DSN filled in:</p>
+      <div class="code labelled"><span class="label">docker-compose.yml</span><pre>services:
+  bugfree-agent:
+    image: ghcr.io/dwarelab/bugfree-docker-agent:latest
+    restart: unless-stopped
+    environment:
+      BUGFREE_DSN: <span class="s">"https://&lt;public key&gt;@api.example.com/&lt;project id&gt;"</span>
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - bugfree-agent:/data
+volumes:
+  bugfree-agent:</pre></div>
+      <ul>
+        <li>It follows running containers, plus every container started later, through the Docker Engine API. It supports the <code>json-file</code> (Docker's default), <code>local</code> and <code>journald</code> log drivers.</li>
+        <li>Read positions are saved in <code>/data</code> once the API has stored the lines. Restarting the agent, a container or the Docker daemon doesn't lose or duplicate lines. If the API is unreachable, the agent pauses and retries, and Docker keeps the lines until it catches up.</li>
+        <li>Stack traces stay together: indented continuation lines and <code>Caused by:</code> are folded into the line before them.</li>
+        <li><code>BUGFREE_INCLUDE</code> / <code>BUGFREE_EXCLUDE</code> take comma-separated globs on the container or Compose service name. The label <code>bugfree.logs=false</code> skips a container. <code>BUGFREE_INITIAL_TAIL</code> (default 200) is how much history already-running containers contribute on the first start.</li>
+        <li>On an issue page, <b>Logs around this event</b> shows the logs from 5 minutes before the event to 1 minute after. It's narrowed to the event's container when the SDK's <code>server_name</code> is a container id, which is Node's default hostname in Docker. Use the same project's DSN for the agent to get this.</li>
+      </ul>
+      <div class="callout warn"><p><b>The Docker socket is root-equivalent.</b> To narrow what the agent can do, run a socket proxy that only allows <code>CONTAINERS</code> and <code>EVENTS</code>, and set <code>DOCKER_HOST=tcp://socket-proxy:2375</code>.</p></div>
+      <h3>Sending logs from anything else</h3>
+      <p><code>POST /api/logs/&lt;project id&gt;?key=&lt;public key&gt;</code> (or the <code>x-bugfree-key</code> header) stores up to 5000 lines per request. Gzip is allowed.</p>
+      <div class="code"><pre>{ <span class="s">"host"</span>: <span class="s">"web-1"</span>, <span class="s">"logs"</span>: [{ <span class="s">"timestamp"</span>: <span class="s">"2026-10-25T10:00:00Z"</span>, <span class="s">"message"</span>: <span class="s">"GET /cart 500"</span>, <span class="s">"stream"</span>: <span class="s">"stderr"</span>,
+  <span class="s">"container"</span>: <span class="s">"shop-api-1"</span>, <span class="s">"service"</span>: <span class="s">"api"</span>, <span class="s">"image"</span>: <span class="s">"shop/api:1.4"</span> }] }</pre></div>
+      <p><code>level</code> is optional. It's read from JSON log lines (pino, bunyan, winston …), logfmt <code>level=</code>, or the text (<code>ERROR</code>, <code>[warn]</code>, <code>TypeError: …</code>). Other fields of JSON lines are kept as attributes and are searchable as <code>field:value</code>.</p>
+    </section>
+
+    <section id="mcp">
+      <h2>AI agents (MCP)<a class="anchor" href="#mcp">#</a></h2>
+      <p>The API serves a <a href="https://modelcontextprotocol.io">Model Context Protocol</a> endpoint at <code>&lt;API_URL&gt;/mcp</code> (Streamable HTTP). It lets coding agents like Claude Code look up your errors, read symbolicated stack traces and logs, and mark issues resolved once a fix ships.</p>
+      <ol class="steps">
+        <li><b>Create a token</b>
+          <p>Go to <b>Team &amp; account → API tokens</b>. A token acts as the user who created it and can see every project. Choose <b>read-only</b> if the agent shouldn't change issue statuses.</p>
+        </li>
+        <li><b>Add the server to your agent</b>
+          <div class="code"><pre>claude mcp add --transport http bugfree https://api.example.com/mcp \
+  --header <span class="s">"Authorization: Bearer bfu_…"</span></pre></div>
+          <p>Any MCP client that supports Streamable HTTP and custom headers works the same way.</p>
+        </li>
+        <li><b>Ask</b>
+          <p>For example: <i>"Check bugfree for new errors in the shop project and fix the top one."</i></p>
+        </li>
+      </ol>
+      <div class="table-wrap"><table>
+        <tr><th>Tool</th><th>What it does</th></tr>
+        <tr><td><code>list_projects</code></td><td>The projects you can see</td></tr>
+        <tr><td><code>list_issues</code></td><td>A project's issues, using the dashboard's <a href="#issues">search syntax</a></td></tr>
+        <tr><td><code>get_issue</code></td><td>Issue details, plus the latest event's stack trace, breadcrumbs and request</td></tr>
+        <tr><td><code>list_issue_events</code></td><td>The events of an issue</td></tr>
+        <tr><td><code>get_event</code> / <code>find_event</code></td><td>One event, by id or by the SDK's event id</td></tr>
+        <tr><td><code>search_logs</code></td><td><a href="#logs">Container logs</a>, e.g. around an event's time</td></tr>
+        <tr><td><code>update_issue_status</code></td><td>Resolve, ignore or reopen an issue. Not available to read-only tokens.</td></tr>
+      </table></div>
+    </section>
+
+    <section id="limits">
+      <h2>Retention &amp; limits<a class="anchor" href="#limits">#</a></h2>
+      <ul>
+        <li>Every hour, events older than <code>RETENTION_DAYS</code> (default 30) and log lines older than <code>LOG_RETENTION_DAYS</code> (default 14) are deleted. Issue counters are kept, and hourly stats are kept for 90 days.</li>
+        <li>Ingest is rate-limited per project to <code>INGEST_RATE_LIMIT</code> events per second (default 50, bursts up to 10×). Over the limit, the API answers <code>429</code> with <code>Retry-After</code>, which the SDKs respect.</li>
+        <li>Events are processed inside the ingest request, in one Postgres transaction. That suits tens of events per second in total. For bursty apps, use the SDK's <code>sampleRate</code>.</li>
+        <li>An event can be up to 1 MB. A source map upload can be up to 100 MB with Docker. On Cloudflare, keep each map well under 50 MB.</li>
+        <li>Login attempts are rate-limited per IP address.</li>
+      </ul>
+    </section>
+
+    <hr>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting<a class="anchor" href="#troubleshooting">#</a></h2>
+      <h4>No events show up</h4>
+      <ul>
+        <li>Set <code>debug: true</code> in <code>init()</code> and check the console for delivery errors.</li>
+        <li>Check that the DSN points at a URL your app can reach. For browser errors, that means a public HTTPS URL.</li>
+        <li>Make sure <code>init()</code> runs before the error happens. In Next.js, <code>instrumentation.ts</code> must be in the project root (or in <code>src/</code>).</li>
+        <li>A <code>401</code> means the project id or public key in the DSN is wrong. A <code>429</code> means you've hit the rate limit.</li>
+      </ul>
+      <h4>Stack traces are still minified</h4>
+      <ul>
+        <li>The event's release must equal the release the maps were uploaded for. Compare the release on the event page with the project's <b>Releases</b> page.</li>
+        <li>With a generic bundler, artifact names must match the script URLs. A script served from <code>https://site.com/dist/app.js</code> needs <code>--url-prefix ~/dist</code>.</li>
+        <li>Upload after every build. A rebuild changes the minified output even if the code is the same.</li>
+      </ul>
+      <h4>I can't stay logged in to the dashboard</h4>
+      <ul>
+        <li>The dashboard and API must share one registrable domain (see <a href="#domains">Domains</a>).</li>
+        <li><code>APP_URL</code> must match the dashboard's origin exactly, including <code>https://</code> and without a trailing slash.</li>
+        <li>With <code>COOKIE_SECURE=true</code>, both sites must be served over HTTPS.</li>
+      </ul>
+      <h4>Alerts don't arrive</h4>
+      <ul>
+        <li>Use <b>Send test alert</b> in the project settings. It shows the webhook's HTTP status and the email result.</li>
+        <li>Alerts only fire for new issues and regressions, at most once per issue every 30 minutes.</li>
+      </ul>
+      <h4>The Cloudflare deploy fails</h4>
+      <ul>
+        <li><b>Hyperdrive can't connect:</b> the database must accept connections from the internet over TLS. Check the URL with <code>psql "$DATABASE_URL"</code>.</li>
+        <li><b>Custom domain errors:</b> the domain must be a zone on the same Cloudflare account, and the hostnames mustn't already have DNS records.</li>
+        <li><b>The API returns 500:</b> run <code>npx wrangler tail bugfree-api</code> and reload the page to see the error.</li>
+      </ul>
+    </section>
+
+    <section id="faq">
+      <h2>FAQ<a class="anchor" href="#faq">#</a></h2>
+      <h4>Is bugfree compatible with the Sentry SDKs?</h4>
+      <p>No. bugfree has its own small SDKs with a similar API (<code>captureException</code>, <code>setUser</code>, <code>withScope</code> …), so switching usually means changing an import and the <code>init</code> call.</p>
+      <h4>Which frameworks are supported?</h4>
+      <p>Next.js (App Router, 15+), Express 4 and 5, and plain Node.js. Other browser apps can use <code>@dwarelab/bugfree-browser</code>.</p>
+      <h4>Does it do performance tracing or session replay?</h4>
+      <p>Not yet. bugfree focuses on errors, with container logs for context.</p>
+      <h4>Can I use it for commercial projects?</h4>
+      <p>Yes. It's MIT-licensed, so you can use it, change it, and host it for your clients.</p>
+    </section>
+
+    <section id="license">
+      <h2>License<a class="anchor" href="#license">#</a></h2>
+      <p>bugfree is released under the <a href="https://github.com/DwareLab/bugfree/blob/main/LICENSE">MIT License</a>. You're free to use, copy, modify, merge, publish, distribute, sublicense and sell copies of it. Found a bug or have an idea? <a href="https://github.com/DwareLab/bugfree/issues">Open an issue</a> or send a pull request.</p>
+    </section>
+
+    <footer>
+      <span>bugfree · MIT License</span>
+      <span><a href="https://github.com/DwareLab/bugfree">GitHub</a> · <a href="https://www.npmjs.com/org/dwarelab">npm</a> · <a href="https://github.com/DwareLab/bugfree/issues">Issues</a></span>
+    </footer>
+  </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  try { var saved = localStorage.getItem("bugfree-theme"); if (saved) root.dataset.theme = saved; } catch (e) {}
+  document.getElementById("theme").addEventListener("click", function () {
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("bugfree-theme", root.dataset.theme); } catch (e) {}
+  });
+
+  var body = document.body;
+  document.getElementById("menu").addEventListener("click", function () { body.classList.toggle("nav-open"); });
+  document.querySelectorAll(".sidebar a").forEach(function (a) { a.addEventListener("click", function () { body.classList.remove("nav-open"); }); });
+
+  document.querySelectorAll(".code").forEach(function (block) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "Copy";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(block.querySelector("pre").innerText).then(function () {
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+      });
+    });
+    block.appendChild(btn);
+  });
+
+  document.querySelectorAll("[data-tabs]").forEach(function (tabs) {
+    var buttons = tabs.querySelectorAll('[role="tab"]');
+    var panels = tabs.querySelectorAll('[role="tabpanel"]');
+    buttons.forEach(function (b, i) {
+      b.addEventListener("click", function () {
+        buttons.forEach(function (x, j) { x.setAttribute("aria-selected", String(i === j)); panels[j].hidden = i !== j; });
+      });
+    });
+  });
+
+  // Highlight the section being read in the sidebar.
+  var links = {};
+  document.querySelectorAll(".sidebar a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  var current;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      var a = links[e.target.id];
+      if (!a || a === current) return;
+      if (current) current.classList.remove("active");
+      a.classList.add("active"); current = a;
+    });
+  }, { rootMargin: "-70px 0px -70% 0px" });
+  document.querySelectorAll("main section[id]").forEach(function (s) { observer.observe(s); });
+})();
+</script>
+</body>
+</html>

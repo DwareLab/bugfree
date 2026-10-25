@@ -21,5 +21,8 @@ jobs:
         run: npx tsc --noEmit -p apps/api
       - name: Build API
         run: npm run build -w @bugfree/api
+      - name: Bundle the API for Cloudflare Workers
+        run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker"
+        working-directory: apps/api
       - name: Build dashboard
         run: npm run build -w @bugfree/web

@@ -1,6 +1,9 @@
 # bugfree
 
-Self-hosted error tracking for **Next.js** and **Express**, a small Sentry you run yourself.
+Self-hosted error tracking for **Next.js** and **Express**, a small Sentry you run yourself. Free and MIT-licensed.
+
+**User guide:** [dwarelab.github.io/bugfree](https://dwarelab.github.io/bugfree/) (source in [`docs/`](docs/index.html)).
+Deploy with Docker Compose or to Cloudflare with one command (`npm run deploy:cloudflare`).
 
 - **SDKs:** capture uncaught errors, unhandled rejections, React error-boundary errors, Next.js server errors
   (RSC, route handlers, server actions) and Express route errors. Breadcrumbs (clicks, navigation, fetch/XHR,
@@ -13,6 +16,9 @@ Self-hosted error tracking for **Next.js** and **Express**, a small Sentry you r
   project setup with copy-paste snippets, team members and alerts.
 - **Alerts:** a Slack/Discord/generic webhook and email for new issues and regressions, at most once per issue
   every 30 minutes.
+- **Container logs:** a Docker agent ships every container's stdout/stderr, so logs outlive restarts and
+  re-creates. Search them by text, level, container or JSON field, tail them live, and jump from an issue to what
+  the containers logged around it.
 
 ```
 your apps ──POST /api/ingest/:project?key=…──▶ API (Express) ──▶ Postgres
@@ -31,6 +37,7 @@ CI ── bugfree sourcemaps upload ──────────────�
 | `packages/express` | `requestHandler()` + `errorHandler()` / `setupExpressErrorHandler(app)` |
 | `packages/nextjs` | `@dwarelab/bugfree-nextjs` (`captureRequestError`, `withBugfree`), `/client`, `/server` |
 | `packages/cli` | `bugfree sourcemaps upload`, `bugfree releases new` |
+| `packages/docker-agent` | Ships Docker container logs to bugfree (image `ghcr.io/dwarelab/bugfree-docker-agent`) |
 | `apps/api` | Ingest and dashboard API (Express 5 + Postgres) |
 | `apps/web` | Dashboard (Next.js 16) |
 | `examples/` | `express-demo` and `next-demo`, apps that throw every kind of error |
@@ -168,7 +175,57 @@ The API serves an MCP endpoint at `<API_URL>/mcp` (Streamable HTTP). Create a to
 claude mcp add --transport http bugfree https://api.example.com/mcp --header "Authorization: Bearer bfu_…"
 ```
 
-Tools: `list_projects`, `list_issues` (same search syntax as the dashboard), `get_issue` (details plus the latest event's symbolicated stack trace, breadcrumbs and request), `list_issue_events`, `get_event`, `find_event` (by SDK event id) and `update_issue_status`. Tokens act as the user who created them and see every project, like the dashboard.
+Tools: `list_projects`, `list_issues` (same search syntax as the dashboard), `get_issue` (details plus the latest event's symbolicated stack trace, breadcrumbs and request), `list_issue_events`, `get_event`, `find_event` (by SDK event id), `search_logs` (container logs, see below) and `update_issue_status`. Tokens act as the user who created them and see every project, like the dashboard. A **read-only** token gets every tool except `update_issue_status`.
+
+## Container logs
+
+`docker logs` only lasts as long as the container: `docker compose up` re-creates it and the history is gone. Run
+the agent once per Docker host and every container's stdout/stderr is kept in bugfree instead (**Logs** in the
+project sidebar). The project's **Settings & setup** page has this snippet with your DSN filled in:
+
+```yaml
+services:
+  bugfree-agent:
+    image: ghcr.io/dwarelab/bugfree-docker-agent:latest   # or build: docker build -f packages/docker-agent/Dockerfile .
+    restart: unless-stopped
+    environment:
+      BUGFREE_DSN: "https://<public key>@api.example.com/<project id>"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - bugfree-agent:/data
+volumes:
+  bugfree-agent:
+```
+
+- It follows running containers and every container started later, reading through the Docker Engine API (the
+  `json-file`, `local` and `journald` log drivers, Docker's default is `json-file`).
+- Read positions are saved in `/data` once the API has stored the lines. Restarting the agent, a container or the
+  Docker daemon neither loses nor duplicates lines, and stopped containers are caught up on. When the API is
+  unreachable, the agent retries and pauses reading. Docker keeps the lines until it catches up.
+- Indented continuation lines (stack frames, `Caused by:`) are folded into the line before them, so an error
+  and its stack trace are one entry.
+- `BUGFREE_INCLUDE` / `BUGFREE_EXCLUDE` take comma-separated globs on the container or compose service name; the
+  label `bugfree.logs=false` also skips a container. `BUGFREE_INITIAL_TAIL` (default 200) is how much history
+  already-running containers contribute on first start. `node packages/docker-agent/dist/index.js --help` lists
+  everything.
+- The Docker socket is root-equivalent. To narrow it, run a socket proxy that allows only `CONTAINERS` and
+  `EVENTS` and set `DOCKER_HOST=tcp://socket-proxy:2375`.
+- On the issue page, **Logs around this event** opens the logs from 5 minutes before the event to 1 minute after,
+  narrowed to the event's container when the SDK's `server_name` is a container id (Node's default hostname in
+  Docker). For that, ship logs with the same project's DSN.
+
+Anything else can send logs too: `POST /api/logs/:projectId?key=<public key>` (or the `x-bugfree-key` header) stores up to 5000 log lines per
+request, gzip allowed:
+
+```json
+{ "host": "web-1", "logs": [{ "timestamp": "2026-10-25T10:00:00Z", "message": "GET /cart 500", "stream": "stderr",
+  "container": "shop-api-1", "service": "api", "image": "shop/api:1.4" }] }
+```
+
+`level` is optional: it's read from JSON log lines (pino, bunyan, winston …), logfmt `level=` or the text
+(`ERROR`, `[warn]`, `TypeError: …`). Other fields of JSON lines are kept as attributes and are searchable as
+`field:value`. Lines are rate-limited per project (`LOG_RATE_LIMIT`, default 2000/s) and kept for
+`LOG_RETENTION_DAYS` (default 14).
 
 ## How it works
 
@@ -184,8 +241,17 @@ Tools: `list_projects`, `list_issues` (same search syntax as the dashboard), `ge
 - **Grouping:** fingerprint = exception type + the top 5 in-app frames (normalized path + function, no line
   numbers, build hashes removed), or the normalized message if there's no stack. Override it with
   `fingerprint: ["…"]` (supports `"{{ default }}"`).
+- **Regressions:** a resolved issue reopens (and alerts) when an event arrives from a release that hadn't had the
+  issue before it was resolved. Events from releases that already had it, such as browser tabs still running the old
+  JavaScript, are counted but leave it resolved. Events without a release always reopen it.
 - **Retention:** events older than `RETENTION_DAYS` (default 30) are deleted hourly. Issue counters and hourly
-  stats are kept.
+  stats are kept. A release's source maps are deleted once it has had no uploads or events for
+  `ARTIFACT_RETENTION_DAYS` (default 90); each project's `ARTIFACT_KEEP_RELEASES` (default 5) newest releases
+  always keep theirs.
+- **Capacity:** events are processed inside the ingest request, in one Postgres transaction that updates the
+  issue's row, and the rate limiters are in memory. That suits one API instance taking tens of events per second
+  in total; a single very noisy issue is serialized on its row. Use the SDKs' `sampleRate` or `INGEST_RATE_LIMIT`
+  for bursty apps.
 
 ## Deploying
 
@@ -203,6 +269,28 @@ docker compose up -d --build
 services (any reverse proxy) and set `TRUST_PROXY` if it isn't one hop.
 
 API environment variables are documented in `apps/api/.env.example`.
+
+### Cloudflare
+
+The API runs as a Worker (`apps/api/src/worker.ts`, the same Express app) that reaches your Postgres through
+Hyperdrive, and the dashboard as a Worker built with OpenNext. Bring a Postgres reachable from the internet (Neon,
+Supabase, RDS …) and a Workers Paid plan, then:
+
+```bash
+DATABASE_URL='postgres://…?sslmode=require' npm run deploy:cloudflare -- --domain example.com   # or no flag for workers.dev
+```
+
+The script logs in with Wrangler, creates the Hyperdrive config (query caching off), deploys both Workers on
+`api.` and `app.` custom domains, and applies migrations. It saves its settings in `.cloudflare.json`; re-run
+`npm run deploy:cloudflare` to upgrade. `--help` lists the options, including CI use. Locally, `npm run dev:worker -w
+@bugfree/api` runs the API in workerd against the Docker Postgres. Add new migrations to
+`apps/api/src/worker-migrations.ts` as well (a test checks it).
+
+### Docs site
+
+`docs/index.html` is the public user guide, a single static page. `.github/workflows/docs.yml` publishes it to
+GitHub Pages (enable it once under Settings → Pages → Source: GitHub Actions), or `npm run deploy:docs` puts it on
+Cloudflare.
 
 ## Releasing
 

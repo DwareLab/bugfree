@@ -1,0 +1,24 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "bugfree-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  "observability": { "enabled": true },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000000000000000000000000000",
+      "localConnectionString": "postgres://bugfree:bugfree@localhost:5442/bugfree"
+    }
+  ],
+  "triggers": { "crons": ["17 * * * *"] },
+  "vars": {
+    "API_URL": "http://localhost:8787",
+    "APP_URL": "http://localhost:3100",
+    "COOKIE_SECURE": "false",
+    "TRUST_PROXY": "1",
+    "SOURCEMAP_CACHE_SIZE": "5"
+  }
+}

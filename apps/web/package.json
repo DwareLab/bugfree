@@ -6,7 +6,8 @@
     "dev": "next dev -p 3100",
     "build": "next build",
     "start": "next start -p 3100",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "preview:worker": "opennextjs-cloudflare build && opennextjs-cloudflare preview"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",
@@ -15,10 +16,12 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.13",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "wrangler": "^4.152.0"
   },
   "license": "MIT"
 }

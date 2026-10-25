@@ -1,5 +1,5 @@
 import type pg from "pg";
-import { transaction } from "../db";
+import { runInBackground, transaction } from "../db";
 import { type AlertKind, sendIssueAlert } from "../alerts";
 import { finalizeInApp, fingerprint, summarize } from "./grouping";
 import type { IncomingEvent } from "./schema";
@@ -9,6 +9,9 @@ export const symbolicator = new Symbolicator();
 
 const MAX_TAGS = 25;
 const SKEW_MS = 5 * 60_000;
+
+/** Thrown inside the transaction to roll back a duplicate event's counter updates. */
+const DUPLICATE = Symbol("duplicate event");
 
 export interface ProcessResult {
   issueId: number;
@@ -38,16 +41,19 @@ export async function processEvent(projectId: number, event: IncomingEvent, clie
   const tags = collectTags(event);
 
   const result = await transaction(async (db) => {
+    // Fast path for SDK retries of an event that is already stored.
     const existing = await db.query<{ id: number }>("SELECT id FROM events WHERE project_id = $1 AND event_id = $2", [projectId, event.event_id]);
     if (existing.rowCount) return null;
 
-    const { issueId, isNew, previousStatus } = await upsertIssue(db, projectId, fp, summary, event, occurredAt);
-    const isRegression = previousStatus === "resolved";
+    const { issueId, isNew, isRegression } = await upsertIssue(db, projectId, fp, summary, event, occurredAt);
 
-    await db.query(
+    // Two copies arriving at once both pass the check above; the unique index decides, and the loser rolls back
+    // its issue update so counters aren't incremented twice.
+    const insertedEvent = await db.query(
       `INSERT INTO events (event_id, project_id, issue_id, occurred_at, level, platform, environment, release, transaction_name, message, user_key, data)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-       ON CONFLICT (project_id, event_id) DO NOTHING`,
+       ON CONFLICT (project_id, event_id) DO NOTHING
+       RETURNING id`,
       [
         event.event_id,
         projectId,
@@ -63,6 +69,7 @@ export async function processEvent(projectId: number, event: IncomingEvent, clie
         JSON.stringify({ ...event, fingerprint_hash: fp }),
       ],
     );
+    if (!insertedEvent.rowCount) throw DUPLICATE;
 
     if (tags.length) {
       await db.query(
@@ -81,12 +88,15 @@ export async function processEvent(projectId: number, event: IncomingEvent, clie
       [issueId, occurredAt],
     );
     return { issueId, isNew, isRegression };
+  }).catch((err) => {
+    if (err === DUPLICATE) return null;
+    throw err;
   });
 
   if (!result) return { issueId: 0, eventId: event.event_id, isNew: false, isRegression: false, duplicate: true };
 
   const kind: AlertKind | null = result.isNew ? "new" : result.isRegression ? "regression" : null;
-  if (kind) sendIssueAlert(projectId, result.issueId, kind).catch((err) => console.error("[alerts] failed:", err));
+  if (kind) runInBackground(sendIssueAlert(projectId, result.issueId, kind), "alerts");
   return { ...result, eventId: event.event_id, duplicate: false };
 }
 
@@ -97,7 +107,7 @@ async function upsertIssue(
   summary: ReturnType<typeof summarize>,
   event: IncomingEvent,
   occurredAt: Date,
-): Promise<{ issueId: number; isNew: boolean; previousStatus: string | null }> {
+): Promise<{ issueId: number; isNew: boolean; isRegression: boolean }> {
   const inserted = await db.query<{ id: number }>(
     `INSERT INTO issues (project_id, fingerprint, title, culprit, type, value, level, platform, times_seen, first_seen, last_seen, first_release, last_release)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1,$9,$9,$10,$10)
@@ -105,13 +115,14 @@ async function upsertIssue(
      RETURNING id`,
     [projectId, fp, summary.title, summary.culprit, summary.type, summary.value, event.level, event.platform, occurredAt, event.release ?? null],
   );
-  if (inserted.rowCount) return { issueId: inserted.rows[0].id, isNew: true, previousStatus: null };
+  if (inserted.rowCount) return { issueId: inserted.rows[0].id, isNew: true, isRegression: false };
 
-  const current = await db.query<{ id: number; status: string }>(
-    `SELECT id, status FROM issues WHERE project_id = $1 AND fingerprint = $2 FOR UPDATE`,
+  const current = await db.query<{ id: number; status: string; resolved_at: Date | null }>(
+    `SELECT id, status, resolved_at FROM issues WHERE project_id = $1 AND fingerprint = $2 FOR UPDATE`,
     [projectId, fp],
   );
-  const { id, status } = current.rows[0];
+  const { id, status, resolved_at } = current.rows[0];
+  const reopen = status === "resolved" && !(await isStaleRelease(db, id, event.release, resolved_at));
   await db.query(
     `UPDATE issues SET
        times_seen = times_seen + 1,
@@ -119,12 +130,25 @@ async function upsertIssue(
        last_release = COALESCE($3, last_release),
        title = $4, culprit = COALESCE($5, culprit), value = COALESCE($6, value),
        level = $7,
-       status = CASE WHEN status = 'resolved' THEN 'unresolved' ELSE status END,
-       resolved_at = CASE WHEN status = 'resolved' THEN NULL ELSE resolved_at END
+       status = CASE WHEN $8 THEN 'unresolved' ELSE status END,
+       resolved_at = CASE WHEN $8 THEN NULL ELSE resolved_at END
      WHERE id = $1`,
-    [id, occurredAt, event.release ?? null, summary.title, summary.culprit, summary.value, event.level],
+    [id, occurredAt, event.release ?? null, summary.title, summary.culprit, summary.value, event.level, reopen],
   );
-  return { issueId: id, isNew: false, previousStatus: status };
+  return { issueId: id, isNew: false, isRegression: reopen };
+}
+
+/**
+ * Whether an event for a resolved issue comes from a release that already had the issue before it was resolved,
+ * e.g. a browser tab still running old JavaScript. Those events are counted but don't reopen the issue.
+ */
+async function isStaleRelease(db: pg.PoolClient, issueId: number, release: string | undefined, resolvedAt: Date | null): Promise<boolean> {
+  if (!release || !resolvedAt) return false;
+  const seen = await db.query(
+    `SELECT 1 FROM issue_tags WHERE issue_id = $1 AND key = 'release' AND value = $2 AND first_seen <= $3`,
+    [issueId, release.slice(0, 200), resolvedAt],
+  );
+  return !!seen.rowCount;
 }
 
 function userIdentity(event: IncomingEvent): string | null {

@@ -61,6 +61,12 @@ export default function IssuePage() {
               {i.type && i.value ? <span className="font-normal text-ink-2">: {i.value.split("\n")[0]}</span> : null}
             </h1>
             {i.culprit && <p className="mt-0.5 truncate font-mono text-xs text-ink-2">{i.culprit}</p>}
+            {i.status === "resolved" && i.resolved_at && i.last_seen > i.resolved_at && (
+              <p className="mt-1.5 text-xs text-muted">
+                Seen since it was resolved, from releases that already had it (e.g. stale browser tabs). An event from a new
+                release reopens it.
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {i.status === "unresolved" ? (
@@ -173,9 +179,34 @@ export default function IssuePage() {
               </div>
             </Card>
           )}
+          {event.data && <LogsAround projectId={i.project_id} event={event.data} />}
         </aside>
       </div>
     </>
+  );
+}
+
+/** Links to the container logs written around this event. */
+function LogsAround({ projectId, event }: { projectId: number; event: StoredEvent }) {
+  const t = new Date(event.occurred_at).getTime();
+  const href = (extra: Record<string, string> = {}) =>
+    `/projects/${projectId}/logs?${new URLSearchParams({ from: new Date(t - 5 * 60_000).toISOString(), to: new Date(t + 60_000).toISOString(), at: event.occurred_at, ...extra })}`;
+  // In Docker, the SDK's server_name (the hostname) is the short container id.
+  const containerId = /^[0-9a-f]{12}$/.test(event.data.server_name ?? "") ? event.data.server_name : undefined;
+  return (
+    <Card title="Logs around this event">
+      <div className="space-y-1.5 px-4 py-3 text-sm">
+        <p className="text-xs text-muted">5 minutes before to 1 minute after.</p>
+        {containerId && (
+          <Link href={href({ query: `container_id:${containerId}` })} className="block text-accent-ink hover:underline">
+            This container
+          </Link>
+        )}
+        <Link href={href()} className="block text-accent-ink hover:underline">
+          All containers
+        </Link>
+      </div>
+    </Card>
   );
 }
 

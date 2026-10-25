@@ -26,7 +26,7 @@ export function forgetProjectKey(projectId: number): void {
   keyCache.delete(projectId);
 }
 
-async function projectKey(projectId: number): Promise<string | null> {
+export async function projectKey(projectId: number): Promise<string | null> {
   const cached = keyCache.get(projectId);
   if (cached && Date.now() - cached.at < KEY_TTL_MS) return cached.key;
   const row = await one<{ public_key: string }>("SELECT public_key FROM projects WHERE id = $1", [projectId]);
@@ -35,20 +35,23 @@ async function projectKey(projectId: number): Promise<string | null> {
   return key;
 }
 
-// Token bucket per project: `rate` events/s sustained, bursts up to 10x.
-const buckets = new Map<number, { tokens: number; at: number }>();
-function allow(projectId: number): boolean {
-  const rate = config.ingestRateLimit;
-  const capacity = rate * 10;
-  const now = Date.now();
-  const b = buckets.get(projectId) ?? { tokens: capacity, at: now };
-  b.tokens = Math.min(capacity, b.tokens + ((now - b.at) / 1000) * rate);
-  b.at = now;
-  buckets.set(projectId, b);
-  if (b.tokens < 1) return false;
-  b.tokens -= 1;
-  return true;
+/** Token bucket per project: `rate()` units/s sustained, bursts up to 10x. */
+export function rateLimiter(rate: () => number): (projectId: number, cost?: number) => boolean {
+  const buckets = new Map<number, { tokens: number; at: number }>();
+  return (projectId, cost = 1) => {
+    const capacity = rate() * 10;
+    const now = Date.now();
+    const b = buckets.get(projectId) ?? { tokens: capacity, at: now };
+    b.tokens = Math.min(capacity, b.tokens + ((now - b.at) / 1000) * rate());
+    b.at = now;
+    buckets.set(projectId, b);
+    if (b.tokens < cost) return false;
+    b.tokens -= cost;
+    return true;
+  };
 }
+
+const allow = rateLimiter(() => config.ingestRateLimit);
 
 ingestRouter.options("/api/ingest/:projectId", ingestCors);
 ingestRouter.post(

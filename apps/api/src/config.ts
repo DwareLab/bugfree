@@ -9,7 +9,10 @@ const isProd = process.env.NODE_ENV === "production";
 export const config = {
   isProd,
   port: Number(process.env.PORT ?? 4100),
-  databaseUrl: required("DATABASE_URL", isProd ? undefined : "postgres://bugfree:bugfree@localhost:5442/bugfree"),
+  /** Read on first use: the Cloudflare Worker connects through its Hyperdrive binding instead. */
+  get databaseUrl(): string {
+    return required("DATABASE_URL", isProd ? undefined : "postgres://bugfree:bugfree@localhost:5442/bugfree");
+  },
   /** Public URL of this API; shown in DSNs. */
   apiUrl: required("API_URL", isProd ? undefined : "http://localhost:4100").replace(/\/+$/, ""),
   /** Dashboard origin(s), comma-separated. The first one is used in alert links. */
@@ -24,6 +27,16 @@ export const config = {
   retentionDays: Number(process.env.RETENTION_DAYS ?? 30),
   /** Max events per second per project (burst = 10x). */
   ingestRateLimit: Number(process.env.INGEST_RATE_LIMIT ?? 50),
+  /** Log lines are kept for this long (they are much bulkier than events). */
+  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
+  /** Source maps of a release are deleted once it has had no uploads or events for this long… */
+  artifactRetentionDays: Number(process.env.ARTIFACT_RETENTION_DAYS ?? 90),
+  /** …except for each project's newest releases, which always keep theirs. */
+  artifactKeepReleases: Number(process.env.ARTIFACT_KEEP_RELEASES ?? 5),
+  /** Max log lines per second per project (burst = 10x). */
+  logRateLimit: Number(process.env.LOG_RATE_LIMIT ?? 2000),
+  /** Parsed source maps kept in memory for symbolication (lower on Workers, which have 128 MB). */
+  sourceMapCacheSize: Number(process.env.SOURCEMAP_CACHE_SIZE ?? 30),
   smtpUrl: process.env.SMTP_URL || undefined,
   alertFrom: process.env.ALERT_FROM ?? "bugfree <alerts@localhost>",
   /** Set when running behind a reverse proxy so req.ip / req.protocol are correct. */

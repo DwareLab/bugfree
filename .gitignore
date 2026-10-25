@@ -3,9 +3,18 @@ dist
 .next
 .env
 .env.local
+.env.prod*
+.env*.production
+.env*.production.local
 *.log
 coverage
 next-env.d.ts
 *.tsbuildinfo
 .claude
 backups
+# Cloudflare: generated configs, build output, local state
+.wrangler
+.open-next
+.dev.vars
+wrangler.deploy.json
+.cloudflare.json

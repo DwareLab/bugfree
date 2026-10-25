@@ -10,12 +10,13 @@
     "packages/express",
     "packages/nextjs",
     "packages/cli",
+    "packages/docker-agent",
     "apps/api",
     "apps/web",
     "examples/*"
   ],
   "scripts": {
-    "build:sdk": "npm run build -w @dwarelab/bugfree-core && npm run build -w @dwarelab/bugfree-browser -w @dwarelab/bugfree-node && npm run build -w @dwarelab/bugfree-express -w @dwarelab/bugfree-nextjs -w @dwarelab/bugfree-cli",
+    "build:sdk": "npm run build -w @dwarelab/bugfree-core && npm run build -w @dwarelab/bugfree-browser -w @dwarelab/bugfree-node && npm run build -w @dwarelab/bugfree-express -w @dwarelab/bugfree-nextjs -w @dwarelab/bugfree-cli -w @dwarelab/bugfree-docker-agent",
     "build": "npm run build:sdk && npm run build -w @bugfree/api -w @bugfree/web",
     "db:up": "docker compose up -d db",
     "dev:api": "npm run dev -w @bugfree/api",
@@ -23,6 +24,8 @@
     "test": "vitest run",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:seed": "node scripts/dev-seed.mjs",
+    "deploy:cloudflare": "node scripts/deploy-cloudflare.mjs",
+    "deploy:docs": "wrangler deploy --assets docs --name bugfree-docs --compatibility-date 2026-10-01",
     "demo:express": "npm start -w express-demo",
     "demo:next": "npm run build -w next-demo && npm run upload-sourcemaps -w next-demo && npm start -w next-demo"
   },

@@ -42,7 +42,7 @@ function NextSteps({ project }: { project: Project }) {
   return (
     <div className="space-y-5">
       <Step n={1} title="Install the SDK and CLI">
-        <CodeBlock code={`npm install @bugfree/nextjs\nnpm install -D @bugfree/cli`} title="terminal" />
+        <CodeBlock code={`npm install @dwarelab/bugfree-nextjs\nnpm install -D @dwarelab/bugfree-cli`} title="terminal" />
       </Step>
       <Step n={2} title="Add environment variables">
         <CodeBlock
@@ -53,7 +53,7 @@ function NextSteps({ project }: { project: Project }) {
       <Step n={3} title="Report browser errors">
         <CodeBlock
           title="instrumentation-client.ts"
-          code={`import { init } from "@bugfree/nextjs/client";
+          code={`import { init } from "@dwarelab/bugfree-nextjs/client";
 
 init({
   // dsn, release and environment default to NEXT_PUBLIC_BUGFREE_* env vars
@@ -66,19 +66,19 @@ init({
           title="instrumentation.ts"
           code={`export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { init } = await import("@bugfree/nextjs/server");
+    const { init } = await import("@dwarelab/bugfree-nextjs/server");
     init();
   }
 }
 
-export { captureRequestError as onRequestError } from "@bugfree/nextjs";`}
+export { captureRequestError as onRequestError } from "@dwarelab/bugfree-nextjs";`}
         />
       </Step>
       <Step n={5} title="Report errors caught by error boundaries">
         <CodeBlock
           title="app/error.tsx (same for app/global-error.tsx)"
           code={`"use client";
-import { useReportError } from "@bugfree/nextjs/client";
+import { useReportError } from "@dwarelab/bugfree-nextjs/client";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useReportError(error);
@@ -94,7 +94,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <Step n={6} title="Enable source maps and upload them after each build">
         <CodeBlock
           title="next.config.ts"
-          code={`import { withBugfree } from "@bugfree/nextjs";
+          code={`import { withBugfree } from "@dwarelab/bugfree-nextjs";
 
 export default withBugfree({
   // your config
@@ -119,12 +119,12 @@ function ExpressSteps({ project }: { project: Project }) {
   return (
     <div className="space-y-5">
       <Step n={1} title="Install the SDK">
-        <CodeBlock code={`npm install @bugfree/express`} title="terminal" />
+        <CodeBlock code={`npm install @dwarelab/bugfree-express`} title="terminal" />
       </Step>
       <Step n={2} title="Initialize before anything else, then add the two middlewares">
         <CodeBlock
           title="server.js"
-          code={`import * as Bugfree from "@bugfree/express";
+          code={`import * as Bugfree from "@dwarelab/bugfree-express";
 
 Bugfree.init({
   dsn: "${project.dsn}",
@@ -155,7 +155,7 @@ app.use((err, req, res, next) => {
           title="terminal"
           code={`# compile with "sourceMap": true, then:
 BUGFREE_URL=${project.api_url} BUGFREE_AUTH_TOKEN=<secret key> \\
-  npx @bugfree/cli sourcemaps upload dist --url-prefix ~/dist --release $BUGFREE_RELEASE`}
+  npx @dwarelab/bugfree-cli sourcemaps upload dist --url-prefix ~/dist --release $BUGFREE_RELEASE`}
         />
       </Step>
     </div>

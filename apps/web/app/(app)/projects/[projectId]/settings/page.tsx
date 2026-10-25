@@ -4,6 +4,7 @@ import { Eye, EyeOff, PartyPopper, RefreshCw, Send } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useEffect, useState } from "react";
 import { PageHeader, useShell } from "@/components/app-shell";
+import { DockerLogsSetup } from "@/components/docker-logs-setup";
 import { SetupGuide } from "@/components/setup-guide";
 import { Button, Card, CopyButton, ErrorBox, Input, Label, Spinner } from "@/components/ui";
 import { type Project, api, useApi } from "@/lib/api";
@@ -51,6 +52,12 @@ function Settings() {
         <Card title="Set up the SDK">
           <div className="p-4">
             <SetupGuide project={p} />
+          </div>
+        </Card>
+
+        <Card title="Collect Docker logs">
+          <div className="p-4">
+            <DockerLogsSetup project={p} />
           </div>
         </Card>
 
@@ -173,7 +180,7 @@ function Alerts({ project, onChange }: { project: Project; onChange: (p: Project
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={onRegression} onChange={(e) => setOnRegression(e.target.checked)} className="size-4 accent-[var(--accent)]" />
-            Regressions (a resolved issue happens again)
+            Regressions (a resolved issue happens again in a release that hadn't had it)
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-2">

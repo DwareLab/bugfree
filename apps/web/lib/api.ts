@@ -268,3 +268,36 @@ export interface Artifact {
   size: number;
   created_at: string;
 }
+
+export interface LogLine {
+  id: number;
+  /** ISO 8601 with microseconds. */
+  ts: string;
+  level: Level;
+  stream: "stdout" | "stderr" | null;
+  host: string | null;
+  container: string | null;
+  service: string | null;
+  image: string | null;
+  container_id: string | null;
+  message: string;
+  attributes: Record<string, unknown> | null;
+}
+
+export interface LogPage {
+  logs: LogLine[];
+  next: string | null;
+}
+
+export interface LogVolume {
+  bucket_seconds: number;
+  points: Array<Point & { errors: number }>;
+}
+
+export interface LogSource {
+  container: string;
+  last_seen: string;
+  service: string | null;
+  host: string | null;
+  image: string | null;
+}

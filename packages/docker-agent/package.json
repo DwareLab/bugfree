@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@dwarelab/bugfree-core": "0.1.0"
+    "@dwarelab/bugfree-core": "*"
   },
   "engines": {
     "node": ">=20"

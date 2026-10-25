@@ -27,8 +27,18 @@ export function parseSearch(q: string): { text: string[]; filters: Array<[string
   return { text, filters };
 }
 
-issuesRouter.get("/api/projects/:projectId/issues", async (req, res) => {
-  const projectId = intParam(req, "projectId");
+export interface IssueListOptions {
+  status?: string;
+  query?: string;
+  environment?: string;
+  release?: string;
+  sort?: string;
+  offset?: number;
+  limit?: number;
+}
+
+/** One page of a project's issues, with 24 hourly buckets each for sparklines. */
+export async function listIssues(projectId: number, opts: IssueListOptions = {}) {
   const params: unknown[] = [projectId];
   const where = ["i.project_id = $1"];
   const add = (v: unknown) => {
@@ -36,8 +46,8 @@ issuesRouter.get("/api/projects/:projectId/issues", async (req, res) => {
     return `$${params.length}`;
   };
 
-  let status = typeof req.query.status === "string" ? req.query.status : "unresolved";
-  const { text, filters } = parseSearch(typeof req.query.query === "string" ? req.query.query : "");
+  let status = opts.status || "unresolved";
+  const { text, filters } = parseSearch(opts.query ?? "");
   for (const [key, value] of filters) {
     if (key === "is") {
       status = value;
@@ -51,11 +61,12 @@ issuesRouter.get("/api/projects/:projectId/issues", async (req, res) => {
   }
   if (status !== "all") where.push(`i.status = ${add(status)}`);
   for (const key of ["environment", "release"] as const) {
-    const v = req.query[key];
-    if (typeof v === "string" && v) where.push(`EXISTS (SELECT 1 FROM issue_tags t WHERE t.issue_id = i.id AND t.key = '${key}' AND t.value = ${add(v)})`);
+    const v = opts[key];
+    if (v) where.push(`EXISTS (SELECT 1 FROM issue_tags t WHERE t.issue_id = i.id AND t.key = '${key}' AND t.value = ${add(v)})`);
   }
-  const sort = SORTS[String(req.query.sort)] ?? SORTS.last_seen;
-  const offset = Math.max(0, Number(req.query.offset) || 0);
+  const sort = SORTS[String(opts.sort)] ?? SORTS.last_seen;
+  const offset = Math.max(0, Number(opts.offset) || 0);
+  const limit = Math.min(PAGE_SIZE, Math.max(1, Number(opts.limit) || PAGE_SIZE));
 
   const rows = await query(
     `SELECT i.id, i.title, i.culprit, i.type, i.level, i.status, i.platform, i.times_seen, i.first_seen, i.last_seen,
@@ -65,7 +76,7 @@ issuesRouter.get("/api/projects/:projectId/issues", async (req, res) => {
      FROM issues i
      WHERE ${where.join(" AND ")}
      ORDER BY ${sort}, i.id DESC
-     LIMIT ${PAGE_SIZE} OFFSET ${offset}`,
+     LIMIT ${limit} OFFSET ${offset}`,
     params,
   );
 
@@ -81,12 +92,28 @@ issuesRouter.get("/api/projects/:projectId/issues", async (req, res) => {
   const spark = new Map<number, number[]>(ids.map((id) => [id, new Array(24).fill(0)]));
   for (const h of hourly) if (h.idx >= 0 && h.idx < 24) spark.get(h.issue_id)![h.idx] = h.count;
 
-  res.json({
+  return {
     total: rows[0]?.total ?? 0,
     offset,
     pageSize: PAGE_SIZE,
     issues: rows.map(({ total: _t, ...r }) => ({ ...r, hourly: spark.get(r.id) })),
-  });
+  };
+}
+
+const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+
+issuesRouter.get("/api/projects/:projectId/issues", async (req, res) => {
+  const q = req.query;
+  res.json(
+    await listIssues(intParam(req, "projectId"), {
+      status: str(q.status),
+      query: str(q.query),
+      environment: str(q.environment),
+      release: str(q.release),
+      sort: str(q.sort),
+      offset: Number(q.offset) || 0,
+    }),
+  );
 });
 
 const statusBody = z.object({ status: z.enum(["unresolved", "resolved", "ignored"]) });
@@ -102,8 +129,8 @@ issuesRouter.patch("/api/projects/:projectId/issues", async (req, res) => {
   res.json({ updated: rows.length });
 });
 
-issuesRouter.get("/api/issues/:id", async (req, res) => {
-  const id = intParam(req, "id");
+/** An issue with its top tag values and hourly/daily event counts. */
+export async function getIssue(id: number) {
   const issue = await one(
     `SELECT i.*, p.name AS project_name,
        (SELECT count(*)::int FROM issue_users u WHERE u.issue_id = i.id) AS users_count,
@@ -113,7 +140,7 @@ issuesRouter.get("/api/issues/:id", async (req, res) => {
      FROM issues i JOIN projects p ON p.id = i.project_id WHERE i.id = $1`,
     [id],
   );
-  if (!issue) return notFound(res);
+  if (!issue) return undefined;
 
   const tagRows = await query<{ key: string; value: string; times_seen: number; total: number; rank: number }>(
     `SELECT key, value, times_seen::int, sum(times_seen) OVER (PARTITION BY key)::int AS total,
@@ -143,16 +170,26 @@ issuesRouter.get("/api/issues/:id", async (req, res) => {
     ),
   ]);
 
-  res.json({ ...issue, tags, stats: { hourly, daily } });
+  return { ...issue, tags, stats: { hourly, daily } };
+}
+
+issuesRouter.get("/api/issues/:id", async (req, res) => {
+  const issue = await getIssue(intParam(req, "id"));
+  if (!issue) return notFound(res);
+  res.json(issue);
 });
 
-issuesRouter.patch("/api/issues/:id", async (req, res) => {
-  const id = intParam(req, "id");
-  const { status } = parseBody(statusBody, req);
-  const issue = await one(
+export type IssueStatus = z.infer<typeof statusBody>["status"];
+
+export function setIssueStatus(id: number, status: IssueStatus) {
+  return one(
     `UPDATE issues SET status = $2, resolved_at = CASE WHEN $2 = 'resolved' THEN now() ELSE NULL END WHERE id = $1 RETURNING id, status, resolved_at`,
     [id, status],
   );
+}
+
+issuesRouter.patch("/api/issues/:id", async (req, res) => {
+  const issue = await setIssueStatus(intParam(req, "id"), parseBody(statusBody, req).status);
   if (!issue) return notFound(res);
   res.json(issue);
 });
@@ -162,9 +199,8 @@ issuesRouter.delete("/api/issues/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-issuesRouter.get("/api/issues/:id/events", async (req, res) => {
-  const id = intParam(req, "id");
-  const before = Number(req.query.before) || null;
+/** Newest-first page of an issue's events (50), continued with `before` = the previous page's `next`. */
+export async function listEvents(id: number, before: number | null = null) {
   const rows = await query(
     `SELECT id, event_id, occurred_at, received_at, level, environment, release, transaction_name, message, user_key,
             data->'request'->>'url' AS url,
@@ -173,13 +209,15 @@ issuesRouter.get("/api/issues/:id/events", async (req, res) => {
      ORDER BY id DESC LIMIT 50`,
     [id, before],
   );
-  res.json({ events: rows, next: rows.length === 50 ? rows[rows.length - 1].id : null });
+  return { events: rows, next: rows.length === 50 ? rows[rows.length - 1].id : null };
+}
+
+issuesRouter.get("/api/issues/:id/events", async (req, res) => {
+  res.json(await listEvents(intParam(req, "id"), Number(req.query.before) || null));
 });
 
 /** One event of an issue: "latest", "oldest" or an event row id, with neighbours for navigation. */
-issuesRouter.get("/api/issues/:id/events/:which", async (req, res) => {
-  const issueId = intParam(req, "id");
-  const which = req.params.which;
+export async function getEvent(issueId: number, which: string) {
   let event;
   if (which === "latest" || which === "oldest") {
     event = await one(`SELECT * FROM events WHERE issue_id = $1 ORDER BY id ${which === "latest" ? "DESC" : "ASC"} LIMIT 1`, [issueId]);
@@ -188,17 +226,29 @@ issuesRouter.get("/api/issues/:id/events/:which", async (req, res) => {
     if (!Number.isSafeInteger(eventRowId)) throw new HttpError(404, "Not found");
     event = await one(`SELECT * FROM events WHERE issue_id = $1 AND id = $2`, [issueId, eventRowId]);
   }
-  if (!event) return notFound(res, "No stored events for this issue");
+  if (!event) return undefined;
   const [prev, next] = await Promise.all([
     one<{ id: number }>(`SELECT id FROM events WHERE issue_id = $1 AND id < $2 ORDER BY id DESC LIMIT 1`, [issueId, event.id]),
     one<{ id: number }>(`SELECT id FROM events WHERE issue_id = $1 AND id > $2 ORDER BY id ASC LIMIT 1`, [issueId, event.id]),
   ]);
-  res.json({ ...event, prev_id: prev?.id ?? null, next_id: next?.id ?? null });
+  return { ...event, prev_id: prev?.id ?? null, next_id: next?.id ?? null };
+}
+
+issuesRouter.get("/api/issues/:id/events/:which", async (req, res) => {
+  const event = await getEvent(intParam(req, "id"), String(req.params.which));
+  if (!event) return notFound(res, "No stored events for this issue");
+  res.json(event);
 });
 
 /** Find an event by the SDK-generated id (shown to users, e.g. on an error page). */
+export function findEvent(eventId: string) {
+  return one<{ id: number; issue_id: number; project_id: number }>(`SELECT id, issue_id, project_id FROM events WHERE event_id = $1`, [
+    eventId.replace(/-/g, "").toLowerCase(),
+  ]);
+}
+
 issuesRouter.get("/api/events/:eventId", async (req, res) => {
-  const event = await one(`SELECT id, issue_id, project_id FROM events WHERE event_id = $1`, [String(req.params.eventId).replace(/-/g, "").toLowerCase()]);
+  const event = await findEvent(String(req.params.eventId));
   if (!event) return notFound(res);
   res.json(event);
 });

@@ -2,7 +2,7 @@ import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "no
 import { promisify } from "node:util";
 import type { NextFunction, Request, Response } from "express";
 import { config } from "./config";
-import { one, query } from "./db";
+import { one, query, runInBackground } from "./db";
 
 const scrypt = promisify(scryptCb) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 export const SESSION_COOKIE = "bugfree_session";
@@ -50,6 +50,8 @@ export async function destroySession(req: Request, res: Response): Promise<void>
 export interface AuthedUser {
   id: number;
   email: string;
+  /** Set for requests authenticated with a read-only API token. */
+  readOnly?: boolean;
 }
 
 declare module "express-serve-static-core" {
@@ -77,6 +79,36 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   next();
 }
 
+// ---- Personal API tokens (MCP clients) ----
+
+const API_TOKEN_PREFIX = "bfu_";
+
+export async function createApiToken(userId: number, name: string, readOnly: boolean) {
+  const token = `${API_TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`;
+  const row = await one<{ id: number; name: string; prefix: string; read_only: boolean; last_used_at: Date | null; created_at: Date }>(
+    `INSERT INTO api_tokens (user_id, name, token_hash, prefix, read_only) VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, name, prefix, read_only, last_used_at, created_at`,
+    [userId, name, sha256(token), token.slice(0, API_TOKEN_PREFIX.length + 6), readOnly],
+  );
+  return { ...row!, token };
+}
+
+/** The user behind an `Authorization: Bearer bfu_…` header, if the token is valid. */
+export async function loadTokenUser(req: Request): Promise<AuthedUser | undefined> {
+  const token = (req.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (!token.startsWith(API_TOKEN_PREFIX)) return undefined;
+  const user = await one<AuthedUser & { token_id: number; read_only: boolean; last_used_at: Date | null }>(
+    `SELECT u.id, u.email, t.id AS token_id, t.read_only, t.last_used_at FROM api_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = $1`,
+    [sha256(token)],
+  );
+  if (!user) return undefined;
+  // Coarse last-used tracking: at most one write per token per minute.
+  if (!user.last_used_at || Date.now() - user.last_used_at.getTime() > 60_000) {
+    runInBackground(query(`UPDATE api_tokens SET last_used_at = now() WHERE id = $1`, [user.token_id]), "api tokens");
+  }
+  return { id: user.id, email: user.email, readOnly: user.read_only };
+}
+
 /** Rejects cross-site writes: state-changing requests must come from a dashboard origin. */
 export function checkOrigin(req: Request, res: Response, next: NextFunction): void {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
@@ -93,6 +125,8 @@ const attempts = new Map<string, { count: number; reset: number }>();
 export function loginRateLimit(req: Request, res: Response, next: NextFunction): void {
   const key = req.ip ?? "unknown";
   const now = Date.now();
+  // Drop expired windows so IPs that tried once don't stay in memory forever.
+  if (attempts.size > 1000) for (const [k, e] of attempts) if (e.reset < now) attempts.delete(k);
   const entry = attempts.get(key);
   if (!entry || entry.reset < now) {
     attempts.set(key, { count: 1, reset: now + 15 * 60_000 });

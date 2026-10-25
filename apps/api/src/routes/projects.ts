@@ -20,8 +20,9 @@ function present(p: Record<string, any>) {
   return { ...p, dsn: dsnFor(p as { id: number; public_key: string }), api_url: config.apiUrl };
 }
 
-projectsRouter.get("/api/projects", async (_req, res) => {
-  const rows = await query(
+/** Every project with its unresolved-issue count, 24h event volume and last event time. */
+export function listProjects() {
+  return query(
     `SELECT p.id, p.name, p.platform, p.created_at,
        (SELECT count(*)::int FROM issues i WHERE i.project_id = p.id AND i.status = 'unresolved') AS unresolved_issues,
        (SELECT coalesce(sum(h.count), 0)::int FROM issue_hourly h JOIN issues i ON i.id = h.issue_id
@@ -29,7 +30,10 @@ projectsRouter.get("/api/projects", async (_req, res) => {
        (SELECT max(i.last_seen) FROM issues i WHERE i.project_id = p.id) AS last_event_at
      FROM projects p ORDER BY p.name`,
   );
-  res.json(rows);
+}
+
+projectsRouter.get("/api/projects", async (_req, res) => {
+  res.json(await listProjects());
 });
 
 const platform = z.enum(["nextjs", "express", "node", "browser"]);

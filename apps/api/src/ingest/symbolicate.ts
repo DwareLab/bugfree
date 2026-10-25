@@ -1,4 +1,5 @@
 import { FlattenMap, type TraceMap, originalPositionFor, sourceContentFor } from "@jridgewell/trace-mapping";
+import { config } from "../config";
 import { one, query } from "../db";
 import type { Frame } from "./schema";
 
@@ -33,7 +34,6 @@ export const dbArtifactStore: ArtifactStore = {
 
 const CONTEXT_LINES = 5;
 const INDEX_TTL_MS = 30_000;
-const MAX_CACHED_MAPS = 30;
 
 interface ReleaseIndex {
   at: number;
@@ -149,7 +149,7 @@ export class Symbolicator {
       map = null;
     }
     this.maps.set(artifactId, map);
-    if (this.maps.size > MAX_CACHED_MAPS) this.maps.delete(this.maps.keys().next().value!);
+    if (this.maps.size > config.sourceMapCacheSize) this.maps.delete(this.maps.keys().next().value!);
     return map;
   }
 }

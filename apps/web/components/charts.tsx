@@ -37,10 +37,22 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] 
 const fmt = new Intl.NumberFormat("en");
 
 /**
- * Single-series event volume over time. One hue, no legend (the card title names it),
- * hover tooltip per bucket, and an equivalent table for screen readers.
+ * Volume over time. One hue, no legend (the card title names it), hover tooltip per bucket, and an equivalent
+ * table for screen readers. With `errorsLabel`, each bar's `errors` share is stacked at its base in the critical color.
  */
-export function EventsChart({ points, bucket, height = 140, label = "Events" }: { points: Point[]; bucket: "hour" | "day"; height?: number; label?: string }) {
+export function EventsChart({
+  points,
+  bucket,
+  height = 140,
+  label = "Events",
+  errorsLabel,
+}: {
+  points: Array<Point & { errors?: number }>;
+  bucket: "minute" | "hour" | "day";
+  height?: number;
+  label?: string;
+  errorsLabel?: string;
+}) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(0, ...points.map((p) => p.count));
@@ -56,13 +68,15 @@ export function EventsChart({ points, bucket, height = 140, label = "Events" }: 
   const barW = Math.max(1, Math.min(24, band - 2));
 
   const fmtTime = (iso: string) =>
-    bucket === "hour"
-      ? new Date(iso).toLocaleTimeString(undefined, { hour: "numeric" })
-      : new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    bucket === "minute"
+      ? new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+      : bucket === "hour"
+        ? new Date(iso).toLocaleTimeString(undefined, { hour: "numeric" })
+        : new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const fmtFull = (iso: string) =>
-    bucket === "hour"
-      ? new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-      : new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    bucket === "day"
+      ? new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+      : new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   const labelEvery = Math.max(1, Math.ceil(points.length / Math.max(1, Math.floor(plotW / 64))));
 
   return (
@@ -82,10 +96,23 @@ export function EventsChart({ points, bucket, height = 140, label = "Events" }: 
           })}
           {points.map((p, i) => {
             const h = (p.count / top) * plotH;
+            const eh = errorsLabel && p.errors ? (p.errors / top) * plotH : 0;
             const x = padL + i * band + (band - barW) / 2;
+            const opacity = hover === null || hover === i ? 1 : 0.55;
             return (
               <g key={p.t}>
-                {p.count > 0 && <path d={barPath(x, padT + plotH - h, barW, h)} fill="var(--series)" opacity={hover === null || hover === i ? 1 : 0.55} />}
+                {p.count > 0 && <path d={barPath(x, padT + plotH - h, barW, h)} fill="var(--series)" opacity={opacity} />}
+                {/* Errors sit at the base of the bar; a 1px surface gap separates the two segments. */}
+                {eh > 0 && (
+                  <g opacity={opacity}>
+                    {eh < h ? (
+                      <rect x={x} y={padT + plotH - eh} width={barW} height={eh} fill="var(--critical)" />
+                    ) : (
+                      <path d={barPath(x, padT + plotH - eh, barW, eh)} fill="var(--critical)" />
+                    )}
+                    {eh < h && <line x1={x} x2={x + barW} y1={padT + plotH - eh} y2={padT + plotH - eh} stroke="var(--surface)" strokeWidth={1} />}
+                  </g>
+                )}
                 {i % labelEvery === 0 && (
                   <text x={padL + i * band + band / 2} y={height - 6} textAnchor="middle" fontSize={11} fill="var(--muted)">
                     {fmtTime(p.t)}
@@ -117,6 +144,12 @@ export function EventsChart({ points, bucket, height = 140, label = "Events" }: 
             <span className="inline-block size-2 rounded-sm" style={{ background: "var(--series)" }} aria-hidden />
             <span className="tabular">{fmt.format(points[hover].count)}</span> {label.toLowerCase()}
           </div>
+          {errorsLabel && (
+            <div className="mt-0.5 flex items-center gap-1.5 font-medium text-ink">
+              <span className="inline-block size-2 rounded-sm" style={{ background: "var(--critical)" }} aria-hidden />
+              <span className="tabular">{fmt.format(points[hover].errors ?? 0)}</span> {errorsLabel}
+            </div>
+          )}
         </div>
       )}
       <table className="sr-only">
@@ -126,6 +159,7 @@ export function EventsChart({ points, bucket, height = 140, label = "Events" }: 
             <tr key={p.t}>
               <th scope="row">{fmtFull(p.t)}</th>
               <td>{p.count}</td>
+              {errorsLabel && <td>{p.errors ?? 0}</td>}
             </tr>
           ))}
         </tbody>
