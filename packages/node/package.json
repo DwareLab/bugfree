@@ -1,0 +1,33 @@
+{
+  "name": "@bugfree/node",
+  "version": "0.1.0",
+  "description": "bugfree SDK for Node.js",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bugfree/core": "0.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DwareLab/bugfree.git",
+    "directory": "packages/node"
+  },
+  "homepage": "https://github.com/DwareLab/bugfree#readme"
+}

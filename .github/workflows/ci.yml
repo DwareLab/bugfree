@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:sdk
+      - run: npm test
+      - name: Typecheck API
+        run: npx tsc --noEmit -p apps/api
+      - name: Build API
+        run: npm run build -w @bugfree/api
+      - name: Build dashboard
+        run: npm run build -w @bugfree/web

@@ -1,0 +1,43 @@
+{
+  "name": "bugfree",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Open-source, self-hosted error tracking for Next.js and Express: a lightweight Sentry alternative",
+  "workspaces": [
+    "packages/core",
+    "packages/browser",
+    "packages/node",
+    "packages/express",
+    "packages/nextjs",
+    "packages/cli",
+    "apps/api",
+    "apps/web",
+    "examples/*"
+  ],
+  "scripts": {
+    "build:sdk": "npm run build -w @bugfree/core && npm run build -w @bugfree/browser -w @bugfree/node && npm run build -w @bugfree/express -w @bugfree/nextjs -w @bugfree/cli",
+    "build": "npm run build:sdk && npm run build -w @bugfree/api -w @bugfree/web",
+    "db:up": "docker compose up -d db",
+    "dev:api": "npm run dev -w @bugfree/api",
+    "dev:web": "npm run dev -w @bugfree/web",
+    "test": "vitest run",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:seed": "node scripts/dev-seed.mjs",
+    "demo:express": "npm start -w express-demo",
+    "demo:next": "npm run build -w next-demo && npm run upload-sourcemaps -w next-demo && npm start -w next-demo"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsup": "^9.0.0",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DwareLab/bugfree.git"
+  }
+}

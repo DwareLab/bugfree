@@ -1,0 +1,23 @@
+{
+  "name": "@bugfree/cli",
+  "version": "0.1.0",
+  "description": "bugfree CLI: upload source maps and create releases",
+  "type": "module",
+  "bin": {
+    "bugfree": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DwareLab/bugfree.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/DwareLab/bugfree#readme"
+}

@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bugfree
+      POSTGRES_PASSWORD: bugfree
+      POSTGRES_DB: bugfree
+    ports:
+      - "5442:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bugfree"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://bugfree:bugfree@db:5432/bugfree
+      API_URL: ${API_URL:-http://localhost:4100}
+      APP_URL: ${APP_URL:-http://localhost:3100}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SMTP_URL: ${SMTP_URL:-}
+      ALERT_FROM: ${ALERT_FROM:-bugfree <alerts@localhost>}
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+      PORT: 4100
+      NODE_ENV: production
+    ports:
+      - "4100:4100"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:4100}
+    ports:
+      - "3100:3100"
+    depends_on:
+      - api
+
+volumes:
+  db-data:
