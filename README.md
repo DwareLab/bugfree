@@ -16,6 +16,8 @@ Deploy with Docker Compose or to Cloudflare with one command (`npm run deploy:cl
   project setup with copy-paste snippets, team members and alerts.
 - **Alerts:** a Slack/Discord/generic webhook and email for new issues and regressions, at most once per issue
   every 30 minutes.
+- **Bug reports:** a public page per project where your users sign in with GitHub and report bugs, and a Kanban
+  board where your team triages them and replies. Reporters only ever see their own reports.
 - **Container logs:** a Docker agent ships every container's stdout/stderr, so logs outlive restarts and
   re-creates. Search them by text, level, container or JSON field, tail them live, and jump from an issue to what
   the containers logged around it.
@@ -226,6 +228,23 @@ request, gzip allowed:
 (`ERROR`, `[warn]`, `TypeError: …`). Other fields of JSON lines are kept as attributes and are searchable as
 `field:value`. Lines are rate-limited per project (`LOG_RATE_LIMIT`, default 2000/s) and kept for
 `LOG_RETENTION_DAYS` (default 14).
+
+## Bug reports from your users
+
+Turn on **Settings & setup → Bug report page** and share its link (`<APP_URL>/report/<slug>`), or link to it from
+your app's help menu with `?url=<current page>` so the form fills in where it happened. People sign in with GitHub,
+describe the bug and pick how bad it is. They see only the reports they filed, the status (Received, Planned,
+Being worked on, Fixed) and your replies, never your issues, logs or team.
+
+New reports land in the **New** column of the project's **Bug reports** board, and go to the project's alert webhook
+and emails. Drag cards between New, To do, In progress, Done and Won't fix, or open one to set its status, severity
+and assignee and to reply. Replies are shown to the reporter; **internal notes** are not. Team members appear to
+reporters as "<project> team", without their email.
+
+Sign-in needs a GitHub OAuth app (github.com/settings/developers) with the authorization callback URL
+`<API_URL>/api/portal/auth/github/callback`; set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` on the API. Outside
+production the page also offers a test sign-in without GitHub (`PORTAL_DEV_LOGIN=false` hides it). Reporters have
+their own accounts and session cookie, separate from the team's, and can file 10 reports and 60 replies an hour.
 
 ## How it works
 

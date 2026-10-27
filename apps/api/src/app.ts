@@ -9,8 +9,10 @@ import { HttpError } from "./routes/http";
 import { ingestRouter } from "./routes/ingest";
 import { issuesRouter } from "./routes/issues";
 import { logsIngestRouter, logsRouter } from "./routes/logs";
+import { portalRouter } from "./routes/portal";
 import { projectsRouter } from "./routes/projects";
 import { cliRouter, releasesRouter } from "./routes/releases";
+import { ticketsRouter } from "./routes/tickets";
 import { tokensRouter } from "./routes/tokens";
 
 /** The Express app, shared by the Node.js server (index.ts) and the Cloudflare Worker (worker.ts). */
@@ -28,8 +30,9 @@ export function createApp() {
   app.use(ingestRouter, logsIngestRouter, cliRouter, mcpRouter);
 
   // Dashboard API: credentialed CORS for the dashboard origin(s) only, and an Origin check on writes.
+  // The bug report portal is served by the dashboard app too, with its own reporter session.
   app.use("/api", dashboardCors, checkOrigin, cookieParser(), express.json({ limit: "1mb" }));
-  app.use(authRouter, projectsRouter, issuesRouter, logsRouter, releasesRouter, tokensRouter);
+  app.use(authRouter, projectsRouter, issuesRouter, logsRouter, releasesRouter, tokensRouter, ticketsRouter, portalRouter);
 
   app.use((_req, res) => res.status(404).json({ error: "Not found" }));
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

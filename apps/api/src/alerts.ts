@@ -124,3 +124,46 @@ export async function sendTestAlert(projectId: number): Promise<{ webhook?: stri
   }
   return out;
 }
+
+/** Tells the project's webhook / email recipients about a new bug report from the portal. */
+export async function sendTicketAlert(projectId: number, ticket: { number: number; title: string; severity: string; reporter: string }): Promise<void> {
+  const p = await one<{ name: string; alert_webhook_url: string | null; alert_emails: string | null }>(
+    `SELECT name, alert_webhook_url, alert_emails FROM projects WHERE id = $1`,
+    [projectId],
+  );
+  if (!p) return;
+  const link = `${config.appUrls[0]}/projects/${projectId}/tickets?ticket=${ticket.number}`;
+  const text = `*[${p.name}] Bug report #${ticket.number}:* ${ticket.title}\nFrom @${ticket.reporter} · severity ${ticket.severity}\n${link}`;
+  const jobs: Promise<unknown>[] = [];
+  if (p.alert_webhook_url) {
+    jobs.push(
+      fetch(p.alert_webhook_url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          text,
+          content: text.replace(/\*/g, "**"),
+          kind: "ticket",
+          ticket: { number: ticket.number, title: ticket.title, severity: ticket.severity, reporter: ticket.reporter, project: p.name, url: link },
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }).then((res) => {
+        if (!res.ok) throw new Error(`webhook responded ${res.status}`);
+      }),
+    );
+  }
+  const recipients = (p.alert_emails ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const transport = getMailer();
+  if (recipients.length && transport) {
+    jobs.push(
+      transport.sendMail({
+        from: config.alertFrom,
+        to: recipients,
+        subject: `[${p.name}] Bug report #${ticket.number}: ${ticket.title}`.slice(0, 200),
+        text: `New bug report in ${p.name} from @${ticket.reporter}\n\n#${ticket.number} ${ticket.title}\nSeverity: ${ticket.severity}\n\n${link}\n`,
+      }),
+    );
+  }
+  const results = await Promise.allSettled(jobs);
+  for (const r of results) if (r.status === "rejected") console.error("[alerts] ticket alert failed:", r.reason);
+}

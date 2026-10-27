@@ -79,6 +79,65 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   next();
 }
 
+// ---- Bug reporters (portal) ----
+// Reporters are not team members: their own table, session table and cookie, so a reporter
+// session can never pass requireAuth.
+
+export const REPORTER_COOKIE = "bugfree_reporter";
+
+export interface Reporter {
+  id: number;
+  login: string;
+  name: string | null;
+  avatar_url: string | null;
+}
+
+declare module "express-serve-static-core" {
+  interface Request {
+    reporter?: Reporter;
+  }
+}
+
+export async function createReporterSession(res: Response, reporterId: number): Promise<void> {
+  const token = randomBytes(32).toString("base64url");
+  const expires = new Date(Date.now() + config.sessionDays * 86_400_000);
+  await query(`INSERT INTO reporter_sessions (token_hash, reporter_id, expires_at) VALUES ($1, $2, $3)`, [sha256(token), reporterId, expires]);
+  res.cookie(REPORTER_COOKIE, token, {
+    httpOnly: true,
+    secure: config.cookieSecure,
+    sameSite: "lax",
+    domain: config.cookieDomain,
+    expires,
+    path: "/",
+  });
+}
+
+export async function destroyReporterSession(req: Request, res: Response): Promise<void> {
+  const token = req.cookies?.[REPORTER_COOKIE];
+  if (token) await query(`DELETE FROM reporter_sessions WHERE token_hash = $1`, [sha256(token)]);
+  res.clearCookie(REPORTER_COOKIE, { domain: config.cookieDomain, path: "/" });
+}
+
+export async function loadReporter(req: Request): Promise<Reporter | undefined> {
+  const token = req.cookies?.[REPORTER_COOKIE];
+  if (!token) return undefined;
+  return one<Reporter>(
+    `SELECT r.id, r.login, r.name, r.avatar_url FROM reporter_sessions s JOIN reporters r ON r.id = s.reporter_id
+     WHERE s.token_hash = $1 AND s.expires_at > now()`,
+    [sha256(token)],
+  );
+}
+
+export async function requireReporter(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const reporter = await loadReporter(req);
+  if (!reporter) {
+    res.status(401).json({ error: "Sign in to report bugs" });
+    return;
+  }
+  req.reporter = reporter;
+  next();
+}
+
 // ---- Personal API tokens (MCP clients) ----
 
 const API_TOKEN_PREFIX = "bfu_";

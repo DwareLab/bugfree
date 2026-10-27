@@ -26,6 +26,8 @@ Environment:
                         Hyperdrive config); later deploys reuse the saved Hyperdrive id.
   HYPERDRIVE_ID         Use an existing Hyperdrive config instead (e.g. in CI)
   SMTP_URL              Stored as a Worker secret to enable email alerts (port 465 or 587)
+  GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+                        GitHub OAuth app for bug report portal sign-in (the secret is stored as a Worker secret)
   ALERT_FROM, RETENTION_DAYS, LOG_RETENTION_DAYS, ARTIFACT_RETENTION_DAYS, ARTIFACT_KEEP_RELEASES,
   SESSION_DAYS, INGEST_RATE_LIMIT, LOG_RATE_LIMIT
                         Passed to the API when set
@@ -40,6 +42,7 @@ const WEB_DIR = path.join(ROOT, "apps/web");
 const STATE_FILE = path.join(ROOT, ".cloudflare.json");
 const PASSTHROUGH_VARS = [
   "ALERT_FROM",
+  "GITHUB_CLIENT_ID",
   "RETENTION_DAYS",
   "LOG_RETENTION_DAYS",
   "ARTIFACT_RETENTION_DAYS",
@@ -103,6 +106,10 @@ if (args.only !== "web") {
   if (process.env.SMTP_URL) {
     step("Storing SMTP_URL as a secret");
     wrangler(["secret", "put", "SMTP_URL", "--config", "wrangler.deploy.json"], { cwd: API_DIR, input: process.env.SMTP_URL });
+  }
+  if (process.env.GITHUB_CLIENT_SECRET) {
+    step("Storing GITHUB_CLIENT_SECRET as a secret");
+    wrangler(["secret", "put", "GITHUB_CLIENT_SECRET", "--config", "wrangler.deploy.json"], { cwd: API_DIR, input: process.env.GITHUB_CLIENT_SECRET });
   }
 }
 

@@ -41,6 +41,7 @@ export async function runRetention(): Promise<void> {
       [config.artifactRetentionDays, config.artifactKeepReleases],
     );
     await query(`DELETE FROM sessions WHERE expires_at < now()`);
+    await query(`DELETE FROM reporter_sessions WHERE expires_at < now()`);
     await query(`DELETE FROM issue_hourly WHERE hour < now() - interval '90 days'`);
     if (deleted) console.log(`[retention] deleted ${deleted} events older than ${config.retentionDays} days`);
     if (artifacts.length) {

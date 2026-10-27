@@ -17,7 +17,19 @@ export function dsnFor(project: { id: number; public_key: string }): string {
 }
 
 function present(p: Record<string, any>) {
-  return { ...p, dsn: dsnFor(p as { id: number; public_key: string }), api_url: config.apiUrl };
+  return {
+    ...p,
+    dsn: dsnFor(p as { id: number; public_key: string }),
+    api_url: config.apiUrl,
+    portal_url: p.portal_slug ? `${config.appUrls[0]}/report/${p.portal_slug}` : null,
+    portal_github_configured: !!(config.githubClientId && config.githubClientSecret),
+  };
+}
+
+/** e.g. "my-shop-3fa9c1": readable, and not guessable from the project name alone. */
+function portalSlug(name: string): string {
+  const base = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  return `${base || "project"}-${randomKey(3)}`;
 }
 
 /** Every project with its unresolved-issue count, 24h event volume and last event time. */
@@ -27,7 +39,8 @@ export function listProjects() {
        (SELECT count(*)::int FROM issues i WHERE i.project_id = p.id AND i.status = 'unresolved') AS unresolved_issues,
        (SELECT coalesce(sum(h.count), 0)::int FROM issue_hourly h JOIN issues i ON i.id = h.issue_id
           WHERE i.project_id = p.id AND h.hour > now() - interval '24 hours') AS events_24h,
-       (SELECT max(i.last_seen) FROM issues i WHERE i.project_id = p.id) AS last_event_at
+       (SELECT max(i.last_seen) FROM issues i WHERE i.project_id = p.id) AS last_event_at,
+       (SELECT count(*)::int FROM tickets t WHERE t.project_id = p.id AND t.status = 'new') AS new_tickets
      FROM projects p ORDER BY p.name`,
   );
 }
@@ -63,6 +76,7 @@ projectsRouter.patch("/api/projects/:id", async (req, res) => {
       alert_emails: z.string().max(1000).nullable().optional(),
       alert_on_new: z.boolean().optional(),
       alert_on_regression: z.boolean().optional(),
+      portal_enabled: z.boolean().optional(),
     }),
     req,
   );
@@ -70,9 +84,13 @@ projectsRouter.patch("/api/projects/:id", async (req, res) => {
   if (!fields.length) throw new HttpError(400, "Nothing to update");
   const sets = fields.map(([k], i) => `${k} = $${i + 2}`).join(", ");
   const values = fields.map(([, v]) => (v === "" ? null : v));
-  const project = await one(`UPDATE projects SET ${sets} WHERE id = $1 RETURNING *`, [id, ...values]);
+  let project = await one(`UPDATE projects SET ${sets} WHERE id = $1 RETURNING *`, [id, ...values]);
   if (!project) return notFound(res);
-  res.json(present(project));
+  // The portal's address is picked the first time it's turned on and kept after that.
+  if (project.portal_enabled && !project.portal_slug) {
+    project = await one(`UPDATE projects SET portal_slug = $2 WHERE id = $1 RETURNING *`, [id, portalSlug(project.name)]);
+  }
+  res.json(present(project!));
 });
 
 projectsRouter.post("/api/projects/:id/rotate-keys", async (req, res) => {

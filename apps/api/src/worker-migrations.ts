@@ -4,6 +4,7 @@ import m001 from "../migrations/001_init.sql";
 import m002 from "../migrations/002_api_tokens.sql";
 import m003 from "../migrations/003_logs.sql";
 import m004 from "../migrations/004_api_token_scope.sql";
+import m005 from "../migrations/005_tickets.sql";
 import type { Migration } from "./db";
 
 export const migrations: Migration[] = [
@@ -11,4 +12,5 @@ export const migrations: Migration[] = [
   { name: "002_api_tokens.sql", sql: m002 },
   { name: "003_logs.sql", sql: m003 },
   { name: "004_api_token_scope.sql", sql: m004 },
+  { name: "005_tickets.sql", sql: m005 },
 ];

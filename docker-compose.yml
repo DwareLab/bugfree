@@ -57,6 +57,8 @@ services:
       APP_URL: ${APP_URL:-http://localhost:3100}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       SMTP_URL: ${SMTP_URL:-}
       ALERT_FROM: ${ALERT_FROM:-bugfree <alerts@localhost>}
       RETENTION_DAYS: ${RETENTION_DAYS:-30}

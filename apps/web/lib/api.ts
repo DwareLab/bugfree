@@ -27,7 +27,8 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
   if (!res.ok) {
     const serverError = data && typeof data === "object" && "error" in data ? String((data as { error: unknown }).error) : "";
     const message = serverError || `Request failed (${res.status})`;
-    if (res.status === 401 && typeof window !== "undefined" && !path.startsWith("/api/auth/")) {
+    // The bug report portal has its own sign-in; only dashboard calls go to the team login page.
+    if (res.status === 401 && typeof window !== "undefined" && !path.startsWith("/api/auth/") && !path.startsWith("/api/portal/")) {
       window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
     }
     throw new ApiError(res.status, message);
@@ -109,6 +110,7 @@ export interface ProjectSummary {
   unresolved_issues: number;
   events_24h: number;
   last_event_at: string | null;
+  new_tickets: number;
 }
 
 export interface Project {
@@ -123,6 +125,9 @@ export interface Project {
   alert_emails: string | null;
   alert_on_new: boolean;
   alert_on_regression: boolean;
+  portal_enabled: boolean;
+  portal_url: string | null;
+  portal_github_configured: boolean;
   created_at: string;
 }
 
@@ -300,4 +305,72 @@ export interface LogSource {
   service: string | null;
   host: string | null;
   image: string | null;
+}
+
+// ---- Bug reports (portal tickets) ----
+
+export type TicketStatus = "new" | "todo" | "in_progress" | "done" | "wont_fix";
+export type Severity = "low" | "normal" | "high" | "critical";
+
+export interface Ticket {
+  id: number;
+  number: number;
+  title: string;
+  severity: Severity;
+  status: TicketStatus;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  reporter: { login: string; name: string | null; avatar_url: string | null } | null;
+  assignee: { id: number; email: string } | null;
+  comment_count: number;
+}
+
+export interface TicketComment {
+  id: number;
+  body: string;
+  /** Always false in the portal, which never receives internal notes. */
+  internal?: boolean;
+  created_at: string;
+  author_kind: "team" | "reporter";
+  author_name: string | null;
+  author_avatar: string | null;
+}
+
+export interface TicketDetail extends Ticket {
+  description: string;
+  page_url: string | null;
+  user_agent: string | null;
+  comments: TicketComment[];
+}
+
+export interface Reporter {
+  id: number;
+  login: string;
+  name: string | null;
+  avatar_url: string | null;
+}
+
+export interface PortalState {
+  project: { name: string; slug: string };
+  reporter: Reporter | null;
+  signIn: { github: boolean; dev: boolean };
+}
+
+export interface ReporterTicket {
+  number: number;
+  title: string;
+  severity: Severity;
+  status: TicketStatus;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  comment_count: number;
+}
+
+export interface ReporterTicketDetail extends ReporterTicket {
+  description: string;
+  page_url: string | null;
+  comments: TicketComment[];
 }

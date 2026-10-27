@@ -37,6 +37,11 @@ export const config = {
   logRateLimit: Number(process.env.LOG_RATE_LIMIT ?? 2000),
   /** Parsed source maps kept in memory for symbolication (lower on Workers, which have 128 MB). */
   sourceMapCacheSize: Number(process.env.SOURCEMAP_CACHE_SIZE ?? 30),
+  /** GitHub OAuth app for bug report portal sign-in; callback URL is <API_URL>/api/portal/auth/github/callback. */
+  githubClientId: process.env.GITHUB_CLIENT_ID || undefined,
+  githubClientSecret: process.env.GITHUB_CLIENT_SECRET || undefined,
+  /** Lets the portal sign in a local test reporter without GitHub. Never on in production. */
+  portalDevLogin: !isProd && process.env.PORTAL_DEV_LOGIN !== "false",
   smtpUrl: process.env.SMTP_URL || undefined,
   alertFrom: process.env.ALERT_FROM ?? "bugfree <alerts@localhost>",
   /** Set when running behind a reverse proxy so req.ip / req.protocol are correct. */
