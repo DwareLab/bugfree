@@ -10,10 +10,10 @@ import { ApiError, type ReporterTicketDetail, type TicketStatus, api, useApi } f
 import { cx, formatDate, timeAgo } from "@/lib/format";
 
 export default function PortalTicket() {
-  const { slug, project } = usePortal();
-  const { number } = useParams<{ number: string }>();
+  const { slug, portal } = usePortal();
+  const { ticketId } = useParams<{ ticketId: string }>();
   const sent = useSearchParams().get("sent") === "1";
-  const path = `/api/portal/${encodeURIComponent(slug)}/tickets/${encodeURIComponent(number)}`;
+  const path = `/api/portal/${encodeURIComponent(slug)}/tickets/${encodeURIComponent(ticketId)}`;
   const ticket = useApi<ReporterTicketDetail>(path, { refreshMs: 60_000 });
 
   const back = (
@@ -45,7 +45,7 @@ export default function PortalTicket() {
         <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-line bg-accent-wash px-4 py-3 text-sm text-ink" role="status">
           <CircleCheck className="mt-0.5 size-4 shrink-0 text-accent-ink" aria-hidden />
           <div>
-            <strong className="font-medium">Thanks, your report was sent.</strong> The {project.name} team will see it right away. Check back here for
+            <strong className="font-medium">Thanks, your report was sent.</strong> The {portal.name} team will see it right away. Check back here for
             their replies and progress.
           </div>
         </div>
@@ -53,9 +53,10 @@ export default function PortalTicket() {
       <div className="space-y-5">
         <div>
           <div className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-muted">
-            <span className="tabular">#{t.number}</span>
+            <span className="tabular">#{t.id}</span>
             <StatusPill status={t.status} audience="portal" />
             <SeverityBadge severity={t.severity} />
+            {t.project && <span className="rounded bg-surface-2 px-1.5 py-0.5 text-xs text-ink-2">{t.project}</span>}
           </div>
           <h1 className="text-xl font-semibold tracking-tight break-words text-ink">{t.title}</h1>
           <p className="mt-1 text-sm text-muted" title={formatDate(t.created_at)}>

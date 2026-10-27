@@ -125,9 +125,6 @@ export interface Project {
   alert_emails: string | null;
   alert_on_new: boolean;
   alert_on_regression: boolean;
-  portal_enabled: boolean;
-  portal_url: string | null;
-  portal_github_configured: boolean;
   created_at: string;
 }
 
@@ -307,14 +304,33 @@ export interface LogSource {
   image: string | null;
 }
 
-// ---- Bug reports (portal tickets) ----
+// ---- Bug reports: report pages and tickets ----
+
+export interface PortalSummary {
+  id: number;
+  name: string;
+  slug: string;
+  enabled: boolean;
+  intro: string | null;
+  ask_project: boolean;
+  alert_webhook_url: string | null;
+  alert_emails: string | null;
+  created_at: string;
+  /** In the order reporters see them; `label` is what reporters see instead of the project name. */
+  projects: Array<{ id: number; name: string; label: string | null }>;
+  new_tickets: number;
+  /** Open reports filed on this page that aren't routed to a project yet. */
+  unrouted_tickets: number;
+  url: string;
+  api_url: string;
+  github_configured: boolean;
+}
 
 export type TicketStatus = "new" | "todo" | "in_progress" | "done" | "wont_fix";
 export type Severity = "low" | "normal" | "high" | "critical";
 
 export interface Ticket {
   id: number;
-  number: number;
   title: string;
   severity: Severity;
   status: TicketStatus;
@@ -322,6 +338,9 @@ export interface Ticket {
   created_at: string;
   updated_at: string;
   closed_at: string | null;
+  /** null until it's routed to a project. */
+  project: { id: number; name: string } | null;
+  portal: { id: number; name: string; slug: string } | null;
   reporter: { login: string; name: string | null; avatar_url: string | null } | null;
   assignee: { id: number; email: string } | null;
   comment_count: number;
@@ -330,7 +349,7 @@ export interface Ticket {
 export interface TicketComment {
   id: number;
   body: string;
-  /** Always false in the portal, which never receives internal notes. */
+  /** Always false on report pages, which never receive internal notes. */
   internal?: boolean;
   created_at: string;
   author_kind: "team" | "reporter";
@@ -353,13 +372,15 @@ export interface Reporter {
 }
 
 export interface PortalState {
-  project: { name: string; slug: string };
+  portal: { name: string; slug: string; intro: string | null };
+  /** The projects reporters can pick from; empty when the page doesn't ask. */
+  projects: Array<{ id: number; label: string }>;
   reporter: Reporter | null;
   signIn: { github: boolean; dev: boolean };
 }
 
 export interface ReporterTicket {
-  number: number;
+  id: number;
   title: string;
   severity: Severity;
   status: TicketStatus;
@@ -372,5 +393,7 @@ export interface ReporterTicket {
 export interface ReporterTicketDetail extends ReporterTicket {
   description: string;
   page_url: string | null;
+  /** The page's label for the project it was routed to, on pages with several projects. */
+  project: string | null;
   comments: TicketComment[];
 }

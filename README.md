@@ -16,8 +16,9 @@ Deploy with Docker Compose or to Cloudflare with one command (`npm run deploy:cl
   project setup with copy-paste snippets, team members and alerts.
 - **Alerts:** a Slack/Discord/generic webhook and email for new issues and regressions, at most once per issue
   every 30 minutes.
-- **Bug reports:** a public page per project where your users sign in with GitHub and report bugs, and a Kanban
-  board where your team triages them and replies. Reporters only ever see their own reports.
+- **Bug reports:** shareable report pages, each covering one project or several, where your users sign in with
+  GitHub and report bugs. Your team routes reports to the right project and triages them on Kanban boards.
+  Reporters only ever see their own reports.
 - **Container logs:** a Docker agent ships every container's stdout/stderr, so logs outlive restarts and
   re-creates. Search them by text, level, container or JSON field, tail them live, and jump from an issue to what
   the containers logged around it.
@@ -231,15 +232,24 @@ request, gzip allowed:
 
 ## Bug reports from your users
 
-Turn on **Settings & setup → Bug report page** and share its link (`<APP_URL>/report/<slug>`), or link to it from
-your app's help menu with `?url=<current page>` so the form fills in where it happened. People sign in with GitHub,
-describe the bug and pick how bad it is. They see only the reports they filed, the status (Received, Planned,
-Being worked on, Fixed) and your replies, never your issues, logs or team.
+**Report pages** (sidebar → Report pages) are public pages at `<APP_URL>/report/<address>` that you share with your
+users or link to from your app's help menu (add `?url=<current page>` and the form fills in where it happened). A
+page covers one project, or several when a product is made of more than one app: one link for "Acme Shop" can
+take reports for the web shop and the checkout API. Each page has its own address (editable), name, welcome text and
+notifications. Reporters sign in with GitHub, describe the bug and pick how bad it is. They see only the reports they
+filed, the status (Received, Planned, Being worked on, Fixed) and your replies, never your issues, logs or team.
 
-New reports land in the **New** column of the project's **Bug reports** board, and go to the project's alert webhook
-and emails. Drag cards between New, To do, In progress, Done and Won't fix, or open one to set its status, severity
-and assignee and to reply. Replies are shown to the reporter; **internal notes** are not. Team members appear to
-reporters as "<project> team", without their email.
+**Routing.** A page with one project sends every report there. With several, either reporters pick where it
+happened (shown by labels you choose, so internal project names stay internal; "Not sure" is an option), or your
+team routes every report. Unrouted reports wait in the page's inbox, marked **Needs routing**. Route a report, or
+move it to any other project, from its side panel.
+
+**Boards.** Each report page has a board of everything filed on it, filterable by project and by what needs
+routing; each project has a board of the reports routed to it, from any page. Drag cards between New, To do,
+In progress, Done and Won't fix, or open one to set its project, status, severity and assignee and to reply.
+Replies are shown to the reporter; **internal notes** are not. Team members appear to reporters as "<page> team",
+without their email. New reports go to the page's webhook and emails, or, when it has none, to those of the
+project the report was routed to. Deleting a page keeps the reports already routed to projects.
 
 Sign-in needs a GitHub OAuth app (github.com/settings/developers) with the authorization callback URL
 `<API_URL>/api/portal/auth/github/callback`; set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` on the API. Outside

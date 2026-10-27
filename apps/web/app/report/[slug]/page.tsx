@@ -29,8 +29,8 @@ export default function PortalHome() {
         ) : (
           <ul className="divide-y divide-line">
             {tickets.data.map((t) => (
-              <li key={t.number}>
-                <Link href={`/report/${slug}/${t.number}`} className="flex items-center gap-2 px-4 py-3 hover:bg-surface-hover">
+              <li key={t.id}>
+                <Link href={`/report/${slug}/${t.id}`} className="flex items-center gap-2 px-4 py-3 hover:bg-surface-hover">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{t.title}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -56,13 +56,15 @@ export default function PortalHome() {
 }
 
 function ReportForm() {
-  const { slug, project } = usePortal();
+  const { slug, portal, projects } = usePortal();
   const router = useRouter();
   const prefillUrl = useSearchParams().get("url") ?? "";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [pageUrl, setPageUrl] = useState(/^https?:\/\//.test(prefillUrl) ? prefillUrl : "");
   const [severity, setSeverity] = useState<Severity>("normal");
+  /** "" until picked; "unsure" sends it to the team's inbox. */
+  const [projectId, setProjectId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -73,9 +75,9 @@ function ReportForm() {
     try {
       const ticket = await api<ReporterTicketDetail>(`/api/portal/${encodeURIComponent(slug)}/tickets`, {
         method: "POST",
-        json: { title, description, page_url: pageUrl.trim(), severity },
+        json: { title, description, page_url: pageUrl.trim(), severity, project_id: projectId && projectId !== "unsure" ? Number(projectId) : null },
       });
-      router.push(`/report/${slug}/${ticket.number}?sent=1`);
+      router.push(`/report/${slug}/${ticket.id}?sent=1`);
     } catch (err) {
       setError(err as Error);
       setBusy(false);
@@ -83,9 +85,34 @@ function ReportForm() {
   }
 
   return (
-    <Card title={`Report a bug in ${project.name}`}>
+    <Card title={`Report a bug in ${portal.name}`}>
       <form onSubmit={submit} className="space-y-4 p-4">
+        {portal.intro && <p className="text-sm whitespace-pre-wrap text-ink-2">{portal.intro}</p>}
         {error && <ErrorBox error={error} />}
+        {projects.length > 0 && (
+          <div>
+            <Label htmlFor="project" hint="Pick the part of the product it happened in. Not sure? We'll sort it out.">
+              Where did it happen?
+            </Label>
+            <select
+              id="project"
+              required
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="h-9 w-full rounded-md border border-line bg-surface px-2.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-wash"
+            >
+              <option value="" disabled>
+                Choose…
+              </option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+              <option value="unsure">Not sure</option>
+            </select>
+          </div>
+        )}
         <div>
           <Label htmlFor="title" hint="A short summary, like “Checkout button does nothing”.">
             What went wrong?

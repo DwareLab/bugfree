@@ -17,19 +17,7 @@ export function dsnFor(project: { id: number; public_key: string }): string {
 }
 
 function present(p: Record<string, any>) {
-  return {
-    ...p,
-    dsn: dsnFor(p as { id: number; public_key: string }),
-    api_url: config.apiUrl,
-    portal_url: p.portal_slug ? `${config.appUrls[0]}/report/${p.portal_slug}` : null,
-    portal_github_configured: !!(config.githubClientId && config.githubClientSecret),
-  };
-}
-
-/** e.g. "my-shop-3fa9c1": readable, and not guessable from the project name alone. */
-function portalSlug(name: string): string {
-  const base = name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
-  return `${base || "project"}-${randomKey(3)}`;
+  return { ...p, dsn: dsnFor(p as { id: number; public_key: string }), api_url: config.apiUrl };
 }
 
 /** Every project with its unresolved-issue count, 24h event volume and last event time. */
@@ -76,7 +64,6 @@ projectsRouter.patch("/api/projects/:id", async (req, res) => {
       alert_emails: z.string().max(1000).nullable().optional(),
       alert_on_new: z.boolean().optional(),
       alert_on_regression: z.boolean().optional(),
-      portal_enabled: z.boolean().optional(),
     }),
     req,
   );
@@ -84,13 +71,9 @@ projectsRouter.patch("/api/projects/:id", async (req, res) => {
   if (!fields.length) throw new HttpError(400, "Nothing to update");
   const sets = fields.map(([k], i) => `${k} = $${i + 2}`).join(", ");
   const values = fields.map(([, v]) => (v === "" ? null : v));
-  let project = await one(`UPDATE projects SET ${sets} WHERE id = $1 RETURNING *`, [id, ...values]);
+  const project = await one(`UPDATE projects SET ${sets} WHERE id = $1 RETURNING *`, [id, ...values]);
   if (!project) return notFound(res);
-  // The portal's address is picked the first time it's turned on and kept after that.
-  if (project.portal_enabled && !project.portal_slug) {
-    project = await one(`UPDATE projects SET portal_slug = $2 WHERE id = $1 RETURNING *`, [id, portalSlug(project.name)]);
-  }
-  res.json(present(project!));
+  res.json(present(project));
 });
 
 projectsRouter.post("/api/projects/:id/rotate-keys", async (req, res) => {
@@ -113,6 +96,8 @@ projectsRouter.post("/api/projects/:id/test-alert", async (req, res) => {
 
 projectsRouter.delete("/api/projects/:id", async (req, res) => {
   const id = intParam(req, "id");
+  // Bug reports filed on a report page go back to its inbox; others have nowhere left to live.
+  await query(`DELETE FROM tickets WHERE project_id = $1 AND portal_id IS NULL`, [id]);
   await query(`DELETE FROM projects WHERE id = $1`, [id]);
   forgetProjectKey(id);
   res.json({ ok: true });

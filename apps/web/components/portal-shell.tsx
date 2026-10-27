@@ -9,7 +9,7 @@ import { Avatar } from "./tickets";
 import { Button, EmptyState, ErrorBox, Spinner } from "./ui";
 
 /**
- * The public bug report page of one project (/report/:slug). Reporters sign in with GitHub; this is
+ * A public report page (/report/:slug), covering one or more projects. Reporters sign in with GitHub; this is
  * separate from the dashboard's team sign-in and never shows anything but their own reports.
  */
 const Ctx = createContext<(PortalState & { slug: string }) | null>(null);
@@ -34,14 +34,14 @@ export function PortalShell({ children }: { children: ReactNode }) {
     );
   }
   if (!state.data) return <Spinner />;
-  const { project, reporter } = state.data;
+  const { portal, reporter } = state.data;
 
   return (
     <Ctx.Provider value={{ ...state.data, slug }}>
       <Frame
         title={
           <Link href={`/report/${slug}`} className="hover:underline">
-            {project.name}
+            {portal.name}
           </Link>
         }
         account={
@@ -108,7 +108,7 @@ function SignIn({ state, slug, onSignedIn }: { state: PortalState; slug: string;
 
   return (
     <div className="mx-auto max-w-md rounded-xl border border-line bg-surface p-6 shadow-sm">
-      <h1 className="text-lg font-semibold tracking-tight text-ink">Report a bug in {state.project.name}</h1>
+      <h1 className="text-lg font-semibold tracking-tight text-ink">Report a bug in {state.portal.name}</h1>
       <p className="mt-1.5 text-sm text-ink-2">
         Sign in so the team can follow up with you. Only your public GitHub username and avatar are shared, and you&apos;ll only see the reports you file.
       </p>
@@ -145,7 +145,7 @@ function SignIn({ state, slug, onSignedIn }: { state: PortalState; slug: string;
           </Button>
         )}
         {!state.signIn.github && !state.signIn.dev && (
-          <p className="text-sm text-ink-2">Sign-in isn&apos;t set up for this page yet. Please contact the {state.project.name} team directly.</p>
+          <p className="text-sm text-ink-2">Sign-in isn&apos;t set up for this page yet. Please contact the {state.portal.name} team directly.</p>
         )}
       </div>
     </div>

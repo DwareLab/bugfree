@@ -125,26 +125,51 @@ export async function sendTestAlert(projectId: number): Promise<{ webhook?: stri
   return out;
 }
 
-/** Tells the project's webhook / email recipients about a new bug report from the portal. */
-export async function sendTicketAlert(projectId: number, ticket: { number: number; title: string; severity: string; reporter: string }): Promise<void> {
-  const p = await one<{ name: string; alert_webhook_url: string | null; alert_emails: string | null }>(
-    `SELECT name, alert_webhook_url, alert_emails FROM projects WHERE id = $1`,
-    [projectId],
+/**
+ * Tells the team about a new bug report: through the report page's own webhook / emails when it has them,
+ * otherwise through those of the project the report was routed to.
+ */
+export async function sendTicketAlert(ticketId: number): Promise<void> {
+  const t = await one<{
+    title: string;
+    severity: string;
+    reporter: string | null;
+    portal_id: number | null;
+    portal_name: string | null;
+    project_id: number | null;
+    project_name: string | null;
+    portal_webhook: string | null;
+    portal_emails: string | null;
+    project_webhook: string | null;
+    project_emails: string | null;
+  }>(
+    `SELECT t.title, t.severity, r.login AS reporter, po.id AS portal_id, po.name AS portal_name, p.id AS project_id, p.name AS project_name,
+       po.alert_webhook_url AS portal_webhook, po.alert_emails AS portal_emails, p.alert_webhook_url AS project_webhook, p.alert_emails AS project_emails
+     FROM tickets t LEFT JOIN portals po ON po.id = t.portal_id LEFT JOIN projects p ON p.id = t.project_id LEFT JOIN reporters r ON r.id = t.reporter_id
+     WHERE t.id = $1`,
+    [ticketId],
   );
-  if (!p) return;
-  const link = `${config.appUrls[0]}/projects/${projectId}/tickets?ticket=${ticket.number}`;
-  const text = `*[${p.name}] Bug report #${ticket.number}:* ${ticket.title}\nFrom @${ticket.reporter} · severity ${ticket.severity}\n${link}`;
+  if (!t) return;
+  const usePortal = !!(t.portal_webhook || t.portal_emails);
+  const webhook = usePortal ? t.portal_webhook : t.project_webhook;
+  const emails = usePortal ? t.portal_emails : t.project_emails;
+  if (!webhook && !emails) return;
+
+  const where = [t.portal_name, t.project_name ?? "needs routing"].filter(Boolean).join(" → ");
+  const link = t.portal_id ? `${config.appUrls[0]}/portals/${t.portal_id}?ticket=${ticketId}` : `${config.appUrls[0]}/projects/${t.project_id}/tickets?ticket=${ticketId}`;
+  const from = t.reporter ? `From @${t.reporter} · ` : "";
+  const text = `*[${where}] Bug report #${ticketId}:* ${t.title}\n${from}severity ${t.severity}\n${link}`;
   const jobs: Promise<unknown>[] = [];
-  if (p.alert_webhook_url) {
+  if (webhook) {
     jobs.push(
-      fetch(p.alert_webhook_url, {
+      fetch(webhook, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           text,
           content: text.replace(/\*/g, "**"),
           kind: "ticket",
-          ticket: { number: ticket.number, title: ticket.title, severity: ticket.severity, reporter: ticket.reporter, project: p.name, url: link },
+          ticket: { id: ticketId, title: t.title, severity: t.severity, reporter: t.reporter, report_page: t.portal_name, project: t.project_name, url: link },
         }),
         signal: AbortSignal.timeout(10_000),
       }).then((res) => {
@@ -152,15 +177,15 @@ export async function sendTicketAlert(projectId: number, ticket: { number: numbe
       }),
     );
   }
-  const recipients = (p.alert_emails ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const recipients = (emails ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const transport = getMailer();
   if (recipients.length && transport) {
     jobs.push(
       transport.sendMail({
         from: config.alertFrom,
         to: recipients,
-        subject: `[${p.name}] Bug report #${ticket.number}: ${ticket.title}`.slice(0, 200),
-        text: `New bug report in ${p.name} from @${ticket.reporter}\n\n#${ticket.number} ${ticket.title}\nSeverity: ${ticket.severity}\n\n${link}\n`,
+        subject: `[${where}] Bug report #${ticketId}: ${t.title}`.slice(0, 200),
+        text: `New bug report (${where})${t.reporter ? ` from @${t.reporter}` : ""}\n\n#${ticketId} ${t.title}\nSeverity: ${t.severity}\n\n${link}\n`,
       }),
     );
   }

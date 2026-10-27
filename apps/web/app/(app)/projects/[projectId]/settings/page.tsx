@@ -1,12 +1,13 @@
 "use client";
 
-import { ExternalLink, Eye, EyeOff, PartyPopper, RefreshCw, Send, TriangleAlert } from "lucide-react";
+import { Eye, EyeOff, Globe, PartyPopper, RefreshCw, Send } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useEffect, useState } from "react";
 import { PageHeader, useShell } from "@/components/app-shell";
 import { DockerLogsSetup } from "@/components/docker-logs-setup";
 import { SetupGuide } from "@/components/setup-guide";
-import { Button, Card, CodeBlock, CopyButton, ErrorBox, Input, Label, Spinner } from "@/components/ui";
+import { Button, Card, CopyButton, ErrorBox, Input, Label, Spinner } from "@/components/ui";
 import { type Project, api, useApi } from "@/lib/api";
 
 export default function SettingsPage() {
@@ -61,7 +62,7 @@ function Settings() {
           </div>
         </Card>
 
-        <BugReportPortal project={p} onChange={project.setData} />
+        <ReportPages project={p} />
         <SecretKey project={p} onChange={project.setData} />
         <Alerts project={p} onChange={project.setData} />
         <General project={p} onChange={project.setData} />
@@ -70,83 +71,51 @@ function Settings() {
   );
 }
 
-function BugReportPortal({ project, onChange }: { project: Project; onChange: (p: Project) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-
-  async function toggle(enabled: boolean) {
-    setBusy(true);
-    setError(null);
-    try {
-      onChange(await api<Project>(`/api/projects/${project.id}`, { method: "PATCH", json: { portal_enabled: enabled } }));
-    } catch (err) {
-      setError(err as Error);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const url = project.portal_url;
+/** The report pages that include this project; the pages themselves are managed under Report pages. */
+function ReportPages({ project }: { project: Project }) {
+  const { portals } = useShell();
+  const pages = portals.filter((po) => po.projects.some((p) => p.id === project.id));
   return (
-    <div id="portal" className="scroll-mt-4">
-      <Card title="Bug report page">
-        <div className="space-y-4 p-4">
-          <p className="text-sm text-ink-2">
-            A public page where your users sign in with GitHub and report bugs. Each reporter sees only their own reports and your replies. Reports
-            land on the <strong className="font-medium text-ink">Bug reports</strong> board, and new ones are sent to the alert webhook and emails below.
-          </p>
-          {error && <ErrorBox error={error} />}
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={project.portal_enabled}
-              disabled={busy}
-              onChange={(e) => toggle(e.target.checked)}
-              className="size-4 accent-[var(--accent)]"
-            />
-            Accept bug reports from users
-          </label>
-          {project.portal_enabled && url && (
-            <>
-              <div className="flex items-center gap-2 rounded-md border border-line bg-code px-3 py-2">
-                <code className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink">{url}</code>
-                <CopyButton text={url} />
-                <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted hover:bg-surface-hover hover:text-ink">
-                  <ExternalLink className="size-3.5" aria-hidden />
-                  Open
-                </a>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-sm text-ink-2">
-                  Link to it from your app&apos;s help menu. Pass the current page as <code className="font-mono text-[12.5px]">url</code> and the form
-                  fills it in:
-                </p>
-                <CodeBlock title="tsx" code={`<a href={\`${url}?url=\${encodeURIComponent(location.href)}\`} target="_blank">Report a bug</a>`} />
-              </div>
-            </>
-          )}
-          {!project.portal_github_configured && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
-              <div className="space-y-1">
-                <p>
-                  <strong className="font-medium">GitHub sign-in isn&apos;t set up on this server yet.</strong> Create a{" "}
-                  <a href="https://github.com/settings/applications/new" target="_blank" rel="noreferrer" className="text-accent-ink hover:underline">
-                    GitHub OAuth app
-                  </a>{" "}
-                  with this authorization callback URL, then set <code className="font-mono text-[12.5px]">GITHUB_CLIENT_ID</code> and{" "}
-                  <code className="font-mono text-[12.5px]">GITHUB_CLIENT_SECRET</code> on the API.
-                </p>
-                <div className="flex items-center gap-2 rounded-md border border-line bg-code px-3 py-1.5">
-                  <code className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{`${project.api_url}/api/portal/auth/github/callback`}</code>
-                  <CopyButton text={`${project.api_url}/api/portal/auth/github/callback`} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </Card>
-    </div>
+    <Card
+      title="Bug report pages"
+      actions={
+        <Link href={`/portals?new=1&project=${project.id}`} className="text-sm text-accent-ink hover:underline">
+          New report page
+        </Link>
+      }
+    >
+      <div className="space-y-3 p-4">
+        <p className="text-sm text-ink-2">
+          Public pages where your users sign in with GitHub and report bugs. Reports routed to this project show up on its{" "}
+          <Link href={`/projects/${project.id}/tickets`} className="text-accent-ink hover:underline">
+            Bug reports
+          </Link>{" "}
+          board.
+        </p>
+        {pages.length ? (
+          <ul className="divide-y divide-line rounded-md border border-line">
+            {pages.map((po) => (
+              <li key={po.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                <Globe className="size-4 shrink-0 text-muted" aria-hidden />
+                <Link href={`/portals/${po.id}/settings`} className="font-medium text-ink hover:underline">
+                  {po.name}
+                </Link>
+                {!po.enabled && <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] text-muted">Off</span>}
+                {po.projects.length > 1 && <span className="text-xs text-muted">with {po.projects.length - 1} other project{po.projects.length > 2 ? "s" : ""}</span>}
+                <span className="ml-auto flex min-w-0 items-center gap-1">
+                  <a href={po.url} target="_blank" rel="noreferrer" className="truncate text-accent-ink hover:underline">
+                    {po.url.replace(/^https?:\/\//, "")}
+                  </a>
+                  <CopyButton text={po.url} label="Copy link" />
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted">No report page includes this project yet.</p>
+        )}
+      </div>
+    </Card>
   );
 }
 

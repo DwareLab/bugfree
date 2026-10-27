@@ -1,10 +1,10 @@
 "use client";
 
-import { Bug, FolderKanban, LogOut, Menu, MessageSquareWarning, Package, Plus, ScrollText, Settings, Users, X } from "lucide-react";
+import { Bug, FolderKanban, Globe, LogOut, Menu, MessageSquareWarning, Package, Plus, ScrollText, Settings, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
-import { type ProjectSummary, type User, api, useApi } from "@/lib/api";
+import { type PortalSummary, type ProjectSummary, type User, api, useApi } from "@/lib/api";
 import { cx } from "@/lib/format";
 import { Spinner } from "./ui";
 
@@ -12,6 +12,11 @@ interface ShellContext {
   user: User;
   projects: ProjectSummary[];
   reloadProjects: () => Promise<void>;
+  /** Report pages (public bug report pages), each covering one or more projects. */
+  portals: PortalSummary[];
+  reloadPortals: () => Promise<void>;
+  /** Refreshes the sidebar's new / needs-routing counts after a report moves. */
+  reloadCounts: () => Promise<void>;
 }
 
 const Ctx = createContext<ShellContext | null>(null);
@@ -27,6 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const projects = useApi<ProjectSummary[]>(user ? "/api/projects" : null, { refreshMs: 60_000 });
+  const portals = useApi<PortalSummary[]>(user ? "/api/portals" : null, { refreshMs: 60_000 });
 
   useEffect(() => {
     api<{ setupRequired: boolean; user: User | null }>("/api/auth/state")
@@ -41,7 +47,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (!user) return <Spinner label="Checking your session" />;
 
   return (
-    <Ctx.Provider value={{ user, projects: projects.data ?? [], reloadProjects: projects.reload }}>
+    <Ctx.Provider
+      value={{
+        user,
+        projects: projects.data ?? [],
+        reloadProjects: projects.reload,
+        portals: portals.data ?? [],
+        reloadPortals: portals.reload,
+        reloadCounts: async () => {
+          await Promise.all([projects.reload(), portals.reload()]);
+        },
+      }}
+    >
       <Layout key={pathname.split("/").slice(0, 3).join("/")}>{children}</Layout>
     </Ctx.Provider>
   );
@@ -82,8 +99,8 @@ function Brand() {
 }
 
 function Sidebar({ onNavigate }: { onNavigate: () => void }) {
-  const { user, projects } = useShell();
-  const params = useParams<{ projectId?: string }>();
+  const { user, projects, portals } = useShell();
+  const params = useParams<{ projectId?: string; portalId?: string }>();
   const pathname = usePathname();
   const router = useRouter();
   const activeProject = params.projectId ? Number(params.projectId) : null;
@@ -145,6 +162,37 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
           </div>
         ))}
         {!projects.length && <p className="px-2.5 py-1 text-xs text-muted">No projects yet.</p>}
+
+        <div className="mt-3 mb-1 flex items-center justify-between px-2.5 pt-2 pb-1">
+          <Link href="/portals" onClick={onNavigate} className="text-[11px] font-semibold uppercase tracking-wider text-muted hover:text-ink">
+            Report pages
+          </Link>
+          <Link href="/portals?new=1" onClick={onNavigate} className="rounded p-0.5 text-muted hover:bg-surface-hover hover:text-ink" aria-label="New report page">
+            <Plus className="size-3.5" />
+          </Link>
+        </div>
+        {portals.map((po) => (
+          <div key={po.id}>
+            {item(
+              `/portals/${po.id}`,
+              <Globe className="size-4 shrink-0" aria-hidden />,
+              po.name,
+              params.portalId === String(po.id),
+              po.new_tickets > 0 ? (
+                <span className="tabular rounded-full bg-accent px-1.5 text-[11px] font-medium text-white" title={`${po.new_tickets} new`}>
+                  {po.new_tickets}
+                </span>
+              ) : !po.enabled ? (
+                <span className="text-[11px] text-muted">off</span>
+              ) : null,
+            )}
+          </div>
+        ))}
+        {!portals.length && (
+          <Link href="/portals?new=1" onClick={onNavigate} className="block px-2.5 py-1 text-xs text-muted hover:text-ink">
+            Collect bug reports from your users →
+          </Link>
+        )}
       </nav>
       <div className="border-t border-line p-2">
         {item("/account", <Users className="size-4" aria-hidden />, "Team & account", pathname === "/account")}
