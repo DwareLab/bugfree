@@ -26,7 +26,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
-    "wrangler": "^4.152.0"
+    "wrangler": "^4.156.2"
   },
   "license": "MIT"
 }
