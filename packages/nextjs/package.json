@@ -42,7 +42,7 @@
     "@dwarelab/bugfree-node": "0.1.0"
   },
   "peerDependencies": {
-    "next": ">=15.0.0",
+    "next": "^16.4.6",
     "react": ">=18.0.0"
   },
   "devDependencies": {
